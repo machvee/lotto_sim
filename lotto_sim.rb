@@ -13,6 +13,37 @@ Outcome = Struct.new(:result, :winnings) do
   end
 end
 
+class Bank
+  attr_reader  :credits
+  attr_reader  :debits
+  attr_reader  :balance
+
+  def initialize(start_balance)
+    @balance = start_balance
+    @credits = 0
+    @debits = 0
+  end
+
+  def credit(amt)
+    @credits += amt
+    @balance += amt
+  end
+
+  def debit(amt)
+    @debits += amt
+    @balance -= amt
+  end
+
+  def to_s
+    "balance: $#{balance}  (credits: $#{credits}.00, debits: $#{debits}.00)"
+  end
+
+  def inspect
+    to_s
+  end
+end
+
+
 class Ticket 
   attr_reader  :lotto
   attr_reader  :number
@@ -83,6 +114,7 @@ class Ticket
     "Ticket #{number}: #{num_picks} picks for $#{cost}.00%s" % (checked ? (", winnings: $%d.00" % winnings) : "")
   end
 end
+
 
 class Generator
 
@@ -242,7 +274,7 @@ class LottoSim
   attr_reader     :start_jackpot
   attr_accessor   :current_jackpot
   attr_reader     :ticket_counter
-  attr_reader     :income
+  attr_reader     :bank
  
   def initialize(options={})
     config = options[:config]||DEFAULT_CONFIG
@@ -279,13 +311,20 @@ class LottoSim
   end
 
   def pick_pays(pick)
-    amt = payouts[m = match(pick)]
-    [m, amt == JACKPOT ? current_jackpot : amt]
+    matches = match(pick)
+    amt_won = payout(matches)
+    bank.debit(amt_won)
+    [matches, amt_won]
+  end
+
+  def payout(result)
+    amt = payouts[result]
+    amt == JACKPOT ? current_jackpot : amt
   end
 
   def buy_ticket(num_picks=1)
     played_check
-    @income += (num_picks * cost)
+    bank.credit(calculate_cost(num_picks))
     t = Ticket.new(self, num_picks)
     tickets << t
     t
@@ -333,7 +372,7 @@ class LottoSim
     @played = false
     @tickets = []
     @ticket_counter = 0
-    @income = 0
+    @bank = Bank.new(start_jackpot)
   end
 
   def pick_till_win(desired_numbers, desired_power_ball, max_tries=-1)
