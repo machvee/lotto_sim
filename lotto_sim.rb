@@ -122,7 +122,8 @@ class Generator
   attr_reader   :pick_range
   attr_reader   :power_range
   attr_accessor :power_max
-  attr_reader   :prng
+  attr_reader   :numbers_prng
+  attr_reader   :power_prng
 
   def initialize(options={})
     #
@@ -135,7 +136,8 @@ class Generator
     if options[:power_max]
       self.power_max = options[:power_max]
     end
-    @prng = Random.new
+    @numbers_prng = Random.new
+    @power_prng = Random.new
   end
 
   def power_max=(val)
@@ -148,13 +150,13 @@ class Generator
     pick = Pick.new
     numbers = []
     while numbers.length < num_picks
-      num = prng.rand(pick_range)
+      num = numbers_prng.rand(pick_range)
       numbers << num unless numbers.include?(num)
     end
     numbers.sort!
     pick.numbers = numbers
     unless power_range.nil?
-      pick.power = prng.rand(power_range)
+      pick.power = power_prng.rand(power_range)
     end
     pick.outcome = nil
     pick
