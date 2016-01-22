@@ -78,13 +78,16 @@ class Ticket
   end
 
   def print_header
+    leader = "="*8
     puts "\n"
-    header = ("="*8) + " #{lotto.name} Ticket \##{number} " + ("="*8)  
+    header = leader + " #{lotto.name} Ticket \##{number} " + ("="*8)  
     puts header
     if lotto.played
       puts "\n"
       puts " DRAW  %s  DRAW" % lotto.official_draw
     end
+    puts "\n"
+    puts (" "*6) + "Plays: #{num_picks}"
     puts "\n"
     header.length
   end
@@ -272,6 +275,7 @@ class LottoSim
   attr_reader     :name
   attr_reader     :cost
   attr_reader     :tickets
+  attr_reader     :plays
   attr_reader     :payouts
   attr_reader     :start_jackpot
   attr_accessor   :current_jackpot
@@ -326,6 +330,7 @@ class LottoSim
 
   def buy_ticket(num_picks=1)
     played_check
+    @plays += num_picks
     bank.credit(calculate_cost(num_picks))
     t = Ticket.new(self, num_picks)
     tickets << t
@@ -373,8 +378,17 @@ class LottoSim
     @official_draw = nil
     @played = false
     @tickets = []
+    @plays = 0
     @ticket_counter = 0
     @bank = Bank.new(start_jackpot)
+  end
+
+  def inspect
+    to_s
+  end
+
+  def to_s
+    "%s: %d tickets purchased, %d plays, current jackpot: $%d.00" % [name, tickets.length, plays, current_jackpot]
   end
 
   def pick_till_win(desired_numbers, desired_power_ball, max_tries=-1)
