@@ -1,7 +1,8 @@
 Pick = Struct.new(:numbers, :power, :outcome) do
   def to_s
-    numbers.map {|n| "%02d" % n}.join("  ") + (power.nil? ? "" : " - %02d" % power)
+    numbers.map {|n| "%02d" % n}.join("   ") + (power.nil? ? "" : "  -  %02d" % power)
   end
+
   def inspect
     to_s
   end
@@ -38,6 +39,49 @@ class Bank
 end
 
 
+class BoxPrinter
+  attr_reader   :width
+
+  BLEFT="\u255A"
+  TLEFT="\u2554"
+  BRIGHT="\u255D"
+  TRIGHT="\u2557"
+  HORIZ="\u2550"
+  VERT="\u2551"
+  SPACE=" "
+
+  def initialize(width)
+    @width = width
+    @top_s =    TLEFT + (HORIZ*width) + TRIGHT
+    @bottom_s = BLEFT + (HORIZ*width) + BRIGHT
+    @lbreak_s = VERT  + (SPACE*width) + VERT
+  end
+
+  def top
+    puts @top_s
+  end
+
+  def bottom
+    puts @bottom_s
+  end
+
+  def lbreak
+    puts @lbreak_s
+  end
+
+  def center(str)
+    side = width - 2 - str.length
+    lmargin = side/2
+    rmargin = side - lmargin
+    puts VERT + " " + (" "*lmargin) + str + (" "*rmargin) + " " + VERT
+  end
+
+  def ljust(str)
+    center(" " + str + (" " * (width-3-str.length)))
+  end
+end
+
+
 class Ticket 
   attr_reader  :lotto
   attr_reader  :number
@@ -47,50 +91,62 @@ class Ticket
   attr_reader  :winnings
   attr_reader  :checked
 
+  TICKET_PRINT_WIDTH=50
+
   def initialize(lotto, num_picks)
     @lotto = lotto
     @number = lotto.next_ticket_number
     @num_picks = num_picks
     @picks = lotto.random_picks(num_picks)
     @cost = lotto.calculate_cost(num_picks)
+    @printer = BoxPrinter.new(TICKET_PRINT_WIDTH)
     @winnings = 0
     @checked = false
   end
 
-  def print(wins=false)
-    len = print_header
-    print_picks(checked ? 2 : 6, wins)
-    puts "\n"
-    puts "   Cost:  $#{cost}.00%s" % (checked ? ("      Winnings:  $%d.00" % winnings) : "")
-    puts "="*len
+  def print(only_winners=false)
+    print_header
+    print_picks(only_winners)
+    print_footer
     nil
   end
 
   def wins
     return unless checked
-    print(true)
+    print(only_winners=true)
   end
 
   def print_header
-    leader = "="*8
-    puts "\n"
-    header = leader + " #{lotto.name} Ticket \##{number} " + ("="*8)  
-    puts header
+    @printer.top
+    @printer.center(" #{display_name}   Ticket: \##{number}")
     if lotto.played
-      puts "\n"
-      puts " DRAW  %s  DRAW" % lotto.official_draw
+      @printer.lbreak
+      @printer.center("**  %s  **" % lotto.official_draw)
     end
-    puts "\n"
-    puts (" "*6) + "Plays: #{num_picks}"
-    puts "\n"
-    header.length
+    @printer.lbreak
+    @printer.ljust("Plays: #{num_picks}")
+    @printer.lbreak
   end
 
-  def print_picks(lead=8, winners=false)
+  def print_picks(only_winners=false)
     picks.each do |pick|
-      next if winners && pick.outcome.payout == 0
-      puts "%s %s%s" % [" "*lead, pick, pick.outcome.nil? ? "" : (" %s" % pick.outcome)]
+      next if only_winners && pick.outcome.payout == 0
+      if checked
+        @printer.ljust("  %s%s" % [pick, pick.outcome.nil? ? "" : (" %s" % pick.outcome)])
+      else
+        @printer.center("%s" % pick)
+      end
     end
+  end
+
+  def print_footer
+    @printer.lbreak
+    @printer.ljust("Cost:  $#{cost}.00%s" % (checked ? ("       Winnings:  $%d.00" % winnings) : ""))
+    @printer.bottom
+  end
+
+  def display_name
+    @dn ||= lotto.name.upcase.gsub(/(.)/, '\1 ')
   end
 
   def check
