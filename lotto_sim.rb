@@ -4,6 +4,8 @@ class Pick
   attr_accessor  :power
   attr_accessor  :outcome
 
+  PICK_COLOR=:red
+
   def initialize(numbers)
     @lotto = lotto
     @numbers = numbers
@@ -15,14 +17,25 @@ class Pick
     print_picks
   end
 
-  def print_picks(draw=nil)
-    numbers.map { |n| "%02d" % n}.join("   ") + (power.nil? ? "" : "  -  %02d"  % power)
+  def print_picks
+    output = ""
+    output << numbers.map { |n| 
+      n_str = "%02d" % n
+      n_str
+    }.join("   ") 
+
+    unless power.nil? 
+      p_str = "  -  %02d"  % power
+      output << p_str
+    end
+    output
   end
 
   def inspect
     to_s
   end
 end
+
 
 class String
   # colorization
@@ -88,6 +101,8 @@ class BoxPrinter
   BRIGHT="\u255D"
   TRIGHT="\u2557"
   HORIZ="\u2550"
+  LSEP="\u2560"
+  RSEP="\u2563"
   VERT="\u2551"
   SPACE=" "
 
@@ -97,10 +112,16 @@ class BoxPrinter
     @top_s    = (TLEFT + (HORIZ*width) + TRIGHT).send(color)
     @bottom_s = (BLEFT + (HORIZ*width) + BRIGHT).send(color)
     @lbreak_s = (VERT  + (SPACE*width) + VERT).send(color)
+    @sep_s    = (LSEP  + (HORIZ*width) + RSEP).send(color)
+    @vert_s   = VERT.send(color)
   end
 
   def top
     output @top_s
+  end
+
+  def sep
+    output @sep_s
   end
 
   def bottom
@@ -115,11 +136,11 @@ class BoxPrinter
     side = width - 2 - str.length
     lmargin = side/2
     rmargin = side - lmargin
-    output VERT.send(color) + " " + (" "*lmargin) + str + (" "*rmargin) + " " + VERT.send(color)
+    output "%s %s%s%s %s" % [@vert_s, " "*lmargin, str, " "*rmargin, @vert_s]
   end
 
   def ljust(str)
-    center(" " + str + (" " * (width-3-str.length)))
+    center(" %s%s" % [str, " "*(width-3-str.length)])
   end
 
   def output(str)
@@ -137,7 +158,7 @@ class Ticket
   attr_reader  :winnings
   attr_reader  :checked
 
-  TICKET_PRINT_WIDTH=50
+  TICKET_PRINT_WIDTH=60
 
   def initialize(lotto, num_picks)
     @lotto = lotto
@@ -166,6 +187,7 @@ class Ticket
     puts "\n"
     @printer.top
     @printer.center(" #{display_name}   Ticket: \##{number}")
+    @printer.sep
     if lotto.played
       @printer.lbreak
       @printer.center("**  %s  **" % lotto.official_draw)
@@ -179,7 +201,7 @@ class Ticket
     picks.each do |pick|
       next if only_winners && pick.outcome.payout == 0
       if checked
-        @printer.ljust("  %s%s" % [pick, pick.outcome.nil? ? "" : (" %s" % pick.outcome)])
+        @printer.ljust("  %s%s" % [pick.print_picks, pick.outcome.nil? ? "" : ("   %s" % pick.outcome)])
       else
         @printer.center("%s" % pick)
       end
@@ -322,7 +344,7 @@ class Outcome
   end
 
   def inspect
-    "%s: %10d %s" % [self, count, (count.zero? ? '' : ("- $%13.2f" % count*payout))]
+    to_s
   end
 end
 
@@ -527,6 +549,7 @@ class LottoSim
     @ticket_counter = 0
     @bank = Bank.new(start_jackpot)
     init_outcomes
+    self
   end
 
   def inspect
