@@ -1,12 +1,52 @@
-Pick = Struct.new(:numbers, :power, :outcome) do
+class Pick 
+  attr_reader    :lotto
+  attr_reader    :numbers
+  attr_accessor  :power
+  attr_accessor  :outcome
+
+  def initialize(numbers)
+    @lotto = lotto
+    @numbers = numbers
+    @power = nil
+    @outcome = nil
+  end
+
   def to_s
-    numbers.map {|n| "%02d" % n}.join("   ") + (power.nil? ? "" : "  -  %02d" % power)
+    print_picks
+  end
+
+  def print_picks(draw=nil)
+    numbers.map { |n| "%02d" % n}.join("   ") + (power.nil? ? "" : "  -  %02d"  % power)
   end
 
   def inspect
     to_s
   end
 end
+
+class String
+  # colorization
+  def colorize(color_code)
+    "\e[#{color_code}m#{self}\e[0m"
+  end
+
+  def red
+    colorize(31)
+  end
+
+  def green
+    colorize(32)
+  end
+
+  def blue
+    colorize(34)
+  end
+
+  def light_blue
+    colorize(36)
+  end
+end
+
 
 class Bank
   attr_reader  :credits
@@ -41,6 +81,7 @@ end
 
 class BoxPrinter
   attr_reader   :width
+  attr_reader   :color
 
   BLEFT="\u255A"
   TLEFT="\u2554"
@@ -50,34 +91,39 @@ class BoxPrinter
   VERT="\u2551"
   SPACE=" "
 
-  def initialize(width)
-    @width = width
-    @top_s =    TLEFT + (HORIZ*width) + TRIGHT
-    @bottom_s = BLEFT + (HORIZ*width) + BRIGHT
-    @lbreak_s = VERT  + (SPACE*width) + VERT
+  def initialize(width, color=:green)
+    @color    = color
+    @width    = width
+    @top_s    = (TLEFT + (HORIZ*width) + TRIGHT).send(color)
+    @bottom_s = (BLEFT + (HORIZ*width) + BRIGHT).send(color)
+    @lbreak_s = (VERT  + (SPACE*width) + VERT).send(color)
   end
 
   def top
-    puts @top_s
+    output @top_s
   end
 
   def bottom
-    puts @bottom_s
+    output @bottom_s
   end
 
   def lbreak
-    puts @lbreak_s
+    output @lbreak_s
   end
 
   def center(str)
     side = width - 2 - str.length
     lmargin = side/2
     rmargin = side - lmargin
-    puts VERT + " " + (" "*lmargin) + str + (" "*rmargin) + " " + VERT
+    output VERT.send(color) + " " + (" "*lmargin) + str + (" "*rmargin) + " " + VERT.send(color)
   end
 
   def ljust(str)
     center(" " + str + (" " * (width-3-str.length)))
+  end
+
+  def output(str)
+    puts str
   end
 end
 
@@ -99,7 +145,7 @@ class Ticket
     @num_picks = num_picks
     @picks = lotto.random_picks(num_picks)
     @cost = lotto.calculate_cost(num_picks)
-    @printer = BoxPrinter.new(TICKET_PRINT_WIDTH)
+    @printer = BoxPrinter.new(TICKET_PRINT_WIDTH, :green)
     @winnings = 0
     @checked = false
   end
@@ -117,6 +163,7 @@ class Ticket
   end
 
   def print_header
+    puts "\n"
     @printer.top
     @printer.center(" #{display_name}   Ticket: \##{number}")
     if lotto.played
@@ -141,7 +188,7 @@ class Ticket
 
   def print_footer
     @printer.lbreak
-    @printer.ljust("Cost:  $#{cost}.00%s" % (checked ? ("       Winnings:  $%d.00" % winnings) : ""))
+    @printer.ljust("Cost:  $#{cost}.00%s" % (checked ? ((" "*14) + "Winnings:  $%d.00" % winnings) : ""))
     @printer.bottom
   end
 
@@ -201,10 +248,8 @@ class Generator
 
   def pick
     # returns Hash {numbers: [n,..., n][, power: m} randomly
-    pick = Pick.new
-    pick.numbers = gen_numbers
+    pick = Pick.new(gen_numbers)
     pick.power = gen_power if has_power?
-    pick.outcome = nil
     pick
   end
 
@@ -437,17 +482,25 @@ class LottoSim
   end
 
   def match(pick)
-    #
-    # compare the pick against the current official draw
-    # return an Outcome[[numbers_matched, power_match]]
-    #
     raise "no offical_draw" if official_draw.nil?
-    numbers_matched = (official_draw.numbers & pick.numbers).length
-    power_match = has_power? ? (official_draw.power == pick.power ? 1 : 0) : nil
+    matching_numbers, matching_power = matches(pick)
+    numbers_matched = matching_numbers.length
+    power_match = case matching_power
+      when nil,0
+        matching_power
+      else
+        1
+    end
     outcome = outcomes[[numbers_matched, power_match]]
     outcome.count += 1
     bank.debit(outcome.payout)
     outcome
+  end
+
+  def matches(pick)
+    matching_numbers = official_draw.numbers & pick.numbers
+    matching_power = has_power? ? (official_draw.power == pick.power ? pick.power : 0) : nil
+    [matching_numbers, matching_power]
   end
 
   def has_power?
@@ -484,66 +537,6 @@ class LottoSim
     "%s: %d tickets purchased, %d plays, current jackpot: $%d.00" % [name, tickets.length, plays, current_jackpot]
   end
 
-  def pick_till_win(desired_numbers, desired_power_ball, max_tries=-1)
-    validate(desired_numbers, desired_power_ball)
-    clear_stats
-    desired_numbers.sort!
-    while @count < max_tries || max_tries < 0 do
-      p = pickem
-      r = results(desired_numbers, desired_power_ball)
-      stats(r)
-      puts "#@count: #{p.inspect}" + " ==> " +
-            r[:matched].inspect + " #{r[:power_matched] ? desired_power_ball : '*'}" if notable?(r)
-      break if winner?(r)
-    end
-    puts desired_numbers.inspect + " - #{desired_power_ball}"
-    print_stats
-  end
-
-  def notable?(res)
-    rl = res[:matched].length
-    rl >= @notables[0] || (res[:power_matched] && rl >= @notables[1])
-  end
-
-  def winner?(res)
-    res[:matched].length == num_chosen && res[:power_matched]
-  end
-
-  def validate(numbers, power_ball)
-    raise "too few numbers" if numbers.length < num_chosen
-    raise "numbers must be unique" if numbers.uniq.length < numbers.length
-    raise "invalid numbers" if numbers.any? {|n| n > max || n < 1}
-    raise "invalid power ball" if power_ball > power_max || power_ball < 1
-  end
-
-  def clear_stats
-    @count = 0
-    @numbers_matched = [0]*(num_chosen+1)
-    @numbers_matched_plus = [0]*(num_chosen+1)
-    @power_balls_matched = 0
-  end
-
-  def stats(res)
-    @count += 1
-    if res[:power_matched]
-      @numbers_matched_plus[res[:matched].length] += 1 
-      @power_balls_matched += 1 
-    else
-      @numbers_matched[res[:matched].length] += 1
-    end
-  end
-
-  def print_stats
-    puts "#@count rolls"
-    (num_chosen+1).times do |i|
-      puts "#{i} numbers matched: #{@numbers_matched[i]}/#{@numbers_matched_plus[i]}*"
-    end
-    puts "power balls matched: #@power_balls_matched"
-  end
-
-  def results(desired_numbers, desired_power_ball)
-    {:matched => numbers & desired_numbers, :power_matched => power_ball == desired_power_ball}
-  end
 end
 
 class Powerball < LottoSim
@@ -563,4 +556,3 @@ class FloridaLotto < LottoSim
     super(options.merge(config: FLORIDA_LOTTO))
   end
 end
-
