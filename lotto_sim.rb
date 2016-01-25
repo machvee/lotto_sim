@@ -290,25 +290,6 @@ class Generator
   end
 end
 
-
-class Play
-  #
-  # - choose the lotto game
-  # - create the sim
-  # - buy tickets
-  #   - keep track of $ spent
-  #   - allow a variable # of tickets
-  #   - keep draws
-  # - offical draw
-  # - determine # tickets won
-  # - keep $ value won
-  # - stats on winners/losers
-  #    - 0 0  num occurences  money won/lost
-  #    - 0 1
-  #       ...
-  #
-end
-
 JACKPOT = 'J'
 
 class Outcome
@@ -340,7 +321,7 @@ class Outcome
   end
 
   def payout_s
-    pays.zero? ? '' : ("%s$%.2f" % [jackpot? ? "*** JACKPOT *** " : '', payout])
+    payout.zero? ? '' : ("%s$%.2f" % [jackpot? ? "*** JACKPOT *** " : '', payout])
   end
 
   def inspect
@@ -540,6 +521,17 @@ class LottoSim
     }
   end
 
+  def play(num_tickets=5, num_draws_per_ticket=1)
+    num_tickets.times {|i| 
+      buy_ticket(num_draws_per_ticket)
+      puts(i) if i%1000 == 0 && num_tickets > 10000
+    }
+    draw
+    check_tickets
+    winning_tickets(10).each {|t| t.wins}
+    self
+  end
+
   def reset
     @current_jackpot = @start_jackpot
     @official_draw = nil
@@ -549,6 +541,13 @@ class LottoSim
     @ticket_counter = 0
     @bank = Bank.new(start_jackpot)
     init_outcomes
+    self
+  end
+
+  def stats
+    outcomes.each_pair { |k,v|
+      puts "%s - %d: $%.2f" % [k, v.count, v.count * v.payout]
+    }
     self
   end
 
