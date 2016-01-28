@@ -22,7 +22,7 @@ class Pick
     output << numbers.map { |n| 
       n_str = "%02d" % n
       n_str
-    }.join("   ") 
+    }.join("    ") 
 
     unless power.nil? 
       p_str = "  -  %02d"  % power
@@ -64,30 +64,39 @@ end
 class Bank
   attr_reader  :credits
   attr_reader  :debits
+  attr_reader  :start_balance
   attr_reader  :balance
 
   def initialize(start_balance)
-    @balance = start_balance
-    @credits = 0
-    @debits = 0
+    @start_balance = start_balance
+    reset
   end
 
   def credit(amt)
     @credits += amt
     @balance += amt
+    self
   end
 
   def debit(amt)
     @debits += amt
     @balance -= amt
+    self
   end
 
   def to_s
-    "balance: $#{balance}  (credits: $#{credits}.00, debits: $#{debits}.00)"
+    "balance: #{LottoSim.currency_fmt(balance)}  (credits: #{LottoSim.currency_fmt(credits)}, debits: #{LottoSim.currency_fmt(debits)})"
   end
 
   def inspect
     to_s
+  end
+
+  def reset
+    @balance = @start_balance
+    @credits = 0
+    @debits = 0
+    self
   end
 end
 
@@ -158,7 +167,7 @@ class Ticket
   attr_reader  :winnings
   attr_reader  :checked
 
-  TICKET_PRINT_WIDTH=60
+  TICKET_PRINT_WIDTH=70
 
   def initialize(lotto, num_picks)
     @lotto = lotto
@@ -210,7 +219,8 @@ class Ticket
 
   def print_footer
     @printer.lbreak
-    @printer.ljust("Cost:  $#{cost}.00%s" % (checked ? ((" "*14) + "Winnings:  $%d.00" % winnings) : ""))
+    opt_winnings = checked ? ((" "*14) + "Winnings:  %s" % LottoSim.currency_fmt(winnings)) : ""
+    @printer.ljust("Cost:  %s%s" % [LottoSim.currency_fmt(cost), opt_winnings])
     @printer.bottom
   end
 
@@ -232,7 +242,7 @@ class Ticket
   end
 
   def inspect
-    "Ticket #{number}: #{num_picks} picks for $#{cost}.00%s" % (checked ? (", winnings: $%d.00" % winnings) : "")
+    "Ticket #{number}: #{num_picks} picks for #{LottoSim.currency_fmt(cost)}%s" % (checked ? (", winnings: %s" % LottoSim.currency_fmt(winnings)) : "")
   end
 end
 
@@ -317,15 +327,28 @@ class Outcome
   end
 
   def to_s
-    "(%s%s)  %s" % [numbers_matched, power_match.nil? ? '' : "+#{power_match}", payout_s]
+    "(%s%s)  %s" % [numbers_matched, power_fmt, payout_s]
   end
 
   def payout_s
-    payout.zero? ? '' : ("%s$%.2f" % [jackpot? ? "*** JACKPOT *** " : '', payout])
+    payout.zero? ? '' : ("%s%s" % [jackpot? ? "*** JACKPOT *** " : '', LottoSim.currency_fmt(payout)])
   end
 
   def inspect
     to_s
+  end
+
+  def power_fmt
+    power_match.nil? ? '' : "+#{power_match}"
+  end
+
+  def print
+    puts "[%d%s] - %8s: %20s" % [
+      numbers_matched,
+      power_fmt,
+      LottoSim.comma_sep_num(count),
+      LottoSim.currency_fmt(count * payout)
+    ]
   end
 end
 
@@ -421,9 +444,10 @@ class LottoSim
     @game_picker = Generator.new(config[:numbers])
     @ticket_picker = Generator.new(config[:numbers])
     @start_jackpot = config[:start_jackpot]
+    @bank = Bank.new(start_jackpot)
     @payouts = config[:payouts]
     @cost = config[:cost]
-    reset
+    init_setup
   end
 
   def next_ticket_number
@@ -532,21 +556,25 @@ class LottoSim
     self
   end
 
-  def reset
+  def init_setup
     @current_jackpot = @start_jackpot
     @official_draw = nil
     @played = false
     @tickets = []
     @plays = 0
     @ticket_counter = 0
-    @bank = Bank.new(start_jackpot)
     init_outcomes
     self
   end
 
+  def reset
+    bank.reset
+    init_setup
+  end
+
   def stats
     outcomes.each_pair { |k,v|
-      puts "%s - %d: $%.2f" % [k, v.count, v.count * v.payout]
+      v.print
     }
     self
   end
@@ -556,9 +584,20 @@ class LottoSim
   end
 
   def to_s
-    "%s: %d tickets purchased, %d plays, current jackpot: $%d.00" % [name, tickets.length, plays, current_jackpot]
+    "%s: %s tickets purchased, %s plays, current jackpot: %s" % 
+      [name,
+       LottoSim.comma_sep_num(tickets.length),
+       LottoSim.comma_sep_num(plays),
+       LottoSim.currency_fmt(current_jackpot)]
   end
 
+  def self.comma_sep_num(num)
+    num.to_s.chars.reverse.each_slice(3).map(&:join).join(",").reverse
+  end
+
+  def self.currency_fmt(amt)
+    "$%s.00" % LottoSim.comma_sep_num(amt)
+  end
 end
 
 class Powerball < LottoSim
