@@ -254,6 +254,7 @@ class Generator
   attr_reader   :power_range
   attr_reader   :power_array
   attr_accessor :power_max
+  attr_reader   :numbers_max
   attr_reader   :numbers_prng
   attr_reader   :power_prng
 
@@ -264,7 +265,8 @@ class Generator
     #
     #
     @num_picks = options[:num_picks]
-    @pick_array = [*1..options[:picks_max]]
+    @numbers_max = options[:picks_max]
+    @pick_array = [*1..numbers_max]
     if options[:power_max]
       self.power_max = options[:power_max]
     end
@@ -343,11 +345,14 @@ class Outcome
   end
 
   def print
-    puts "[%d%s] - %8s: %20s" % [
+    perc = (count.to_f / lotto.plays) * 100.0
+    puts "[%d%s] - %8s: %20s %20s %10.4f%%" % [
       numbers_matched,
       power_fmt,
       LottoSim.comma_sep_num(count),
-      LottoSim.currency_fmt(count * payout)
+      LottoSim.currency_fmt(payout),
+      LottoSim.currency_fmt(count * payout),
+      perc
     ]
   end
 end
@@ -452,6 +457,22 @@ class LottoSim
 
   def next_ticket_number
     @ticket_counter += 1
+  end
+
+  def jackpot_odds
+    div = [*1..@game_picker.num_picks].inject(1) {|v, t| t = t * v}.to_f
+    numer = [*(@game_picker.numbers_max - @game_picker.num_picks + 1)..@game_picker.numbers_max].inject(1) {|v, t| t = t * v}
+    numer *= (@game_picker.power_max.nil? ? 1 : @game_picker.power_max)
+    (numer/div).to_i
+  end
+
+  def how_to_play
+    puts "Pick %d numbers between 1 and %d%s." % [
+      @game_picker.num_picks,
+      @game_picker.numbers_max,
+      @game_picker.power_max.nil? ? "" : (", plus one additional number between 1 and %d" % @game_picker.power_max)
+    ]
+    puts "Odds of winning the JACKPOT are 1 in %s" % LottoSim.comma_sep_num(jackpot_odds)
   end
 
   def self.powerball
