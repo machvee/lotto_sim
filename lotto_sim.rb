@@ -1,3 +1,5 @@
+require 'ruby-prof'
+
 module LottoSim
 
   JACKPOT = 'J'
@@ -106,16 +108,23 @@ module LottoSim
     end
 
     def check
-      unless lotto.played
-        puts "lottery not drawn yet"
-        return
-      end
+      lotto.not_drawn_check
       return if checked
       picks.each do |pick|
         pick.outcome = lotto.pick_outcome(pick)
-        @winnings += pick.outcome.payout
+        @winnings += pick.outcome.payout unless pick.outcome.jackpot?
       end
       @checked = true
+    end
+
+    def award_any_jackpot
+      lotto.not_drawn_check
+      picks.each do |pick|
+        if pick.outcome.jackpot?
+          @winnings += pick.outcome.payout
+          lotto.bank.debit(pick.outcome.payout) 
+        end
+      end
     end
 
     def inspect
@@ -215,7 +224,7 @@ module LottoSim
     end
 
     def payout
-      jackpot? ? lotto.current_jackpot : pays
+      jackpot? ? lotto.current_jackpot_payout : pays
     end
 
     def jackpot?
@@ -370,7 +379,9 @@ module LottoSim
       @ticket_counter += 1
     end
 
-    def numbers_to_pick
+    def current_jackpot_payout
+      not_drawn_check
+      current_jackpot / jackpot_outcome.count
     end
 
     def one_in_how_many_jackpot_odds
@@ -414,6 +425,12 @@ module LottoSim
       tickets.sort {|a,b| b.winnings <=> a.winnings}[0...top]
     end
 
+    def award_jackpot
+      tickets.each do |ticket|
+        ticket.award_any_jackpot
+      end
+    end
+
     def random_picks(num_picks)
       (1..num_picks).map {|n| @ticket_picker.pick}
     end
@@ -423,13 +440,13 @@ module LottoSim
     end
 
     def match(pick)
-      raise "no offical_draw" if official_draw.nil?
+      not_drawn_check
 
       matching_numbers = pick.matches(official_draw)
       numbers_matched = matching_numbers.map(&:length)
       outcome = outcomes[numbers_matched]
       outcome.count += 1
-      bank.debit(outcome.payout)
+      bank.debit(outcome.payout) unless outcome.jackpot?
       outcome
     end
 
@@ -437,11 +454,19 @@ module LottoSim
       raise "already drawn" if played
     end
 
+    def not_drawn_check
+      raise "lottery not yet drawn" unless played
+    end
+
     def init_outcomes
       @outcomes = {}
       payouts.each_pair { |numbers_matched, payout| 
         outcomes[numbers_matched] = Outcome.new(self, numbers_matched, payout)
       }
+    end
+
+    def jackpot_outcome
+      outcomes.select {|k,v| v.jackpot?}.first
     end
 
     NUM_TOP_WINNERS_TO_SHOW=10
@@ -465,6 +490,7 @@ module LottoSim
 
       puts "Checking tickets...." unless quiet
       check_tickets(quiet: quiet)
+
       winning_tickets(NUM_TOP_WINNERS_TO_SHOW).each {|t| t.wins}
       self
     end
