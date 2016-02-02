@@ -49,57 +49,19 @@ module LottoSim
       @num_picks = num_picks
       @picks = lotto.random_picks(num_picks)
       @cost = lotto.calculate_cost(num_picks)
-      @printer = lotto.printer
+      @printer = TicketPrinter.new(self)
       @winnings = 0
       @checked = false
     end
 
     def print(only_winners=false)
-      print_header
-      print_picks(only_winners)
-      print_footer
-      nil
+      printer.print(only_winners)
+      self
     end
 
     def wins
       return unless checked
       print(only_winners=true)
-    end
-
-    def print_header
-      puts "\n"
-      printer.top
-      printer.center(" #{display_name}   Ticket: \##{number}")
-      printer.sep
-      if lotto.played
-        printer.lbreak
-        printer.center("**  %s  **" % lotto.official_draw)
-      end
-      printer.lbreak
-      printer.ljust("Plays: #{num_picks}")
-      printer.lbreak
-    end
-
-    def print_picks(only_winners=false)
-      picks.each do |pick|
-        next if only_winners && pick.outcome.payout == 0
-        if checked
-          printer.ljust("  %s%s" % [pick.print_picks, pick.outcome.nil? ? "" : ("   %s" % pick.outcome.print)])
-        else
-          printer.center("%s" % pick)
-        end
-      end
-    end
-
-    def print_footer
-      printer.lbreak
-      opt_winnings = checked ? ((" "*14) + "Winnings:  %s" % Lottery.currency_fmt(winnings)) : ""
-      printer.ljust("Cost:  %s%s" % [Lottery.currency_fmt(cost), opt_winnings])
-      printer.bottom
-    end
-
-    def display_name
-      @dn ||= lotto.name.upcase.gsub(/(.)/, '\1 ')
     end
 
     def check
@@ -124,6 +86,61 @@ module LottoSim
 
     def inspect
       "Ticket #{number}: #{num_picks} picks for #{Lottery.currency_fmt(cost)}%s" % (checked ? (", winnings: %s" % Lottery.currency_fmt(winnings)) : "")
+    end
+  end
+
+
+  class TicketPrinter
+    attr_reader   :ticket
+    attr_reader   :printer
+
+    def initialize(ticket)
+      @ticket = ticket
+      @printer = ticket.lotto.printer
+    end
+
+    def print(only_winners=false)
+      print_header
+      print_picks(only_winners)
+      print_footer
+    end
+
+    private
+
+    def print_header
+      puts "\n"
+      printer.top
+      printer.center(" #{display_name}   Ticket: \##{ticket.number}")
+      printer.sep
+      if ticket.lotto.played
+        printer.lbreak
+        printer.center("**  %s  **" % ticket.lotto.official_draw)
+      end
+      printer.lbreak
+      printer.ljust("Plays: #{ticket.num_picks}")
+      printer.lbreak
+    end
+
+    def print_picks(only_winners=false)
+      ticket.picks.each do |pick|
+        next if only_winners && pick.outcome.payout == 0
+        if ticket.checked
+          printer.ljust("  %s%s" % [pick.print_picks, pick.outcome.nil? ? "" : ("   %s" % pick.outcome.print)])
+        else
+          printer.center("%s" % pick)
+        end
+      end
+    end
+
+    def print_footer
+      printer.lbreak
+      opt_winnings = ticket.checked ? ((" "*14) + "Winnings:  %s" % Lottery.currency_fmt(ticket.winnings)) : ""
+      printer.ljust("Cost:  %s%s" % [Lottery.currency_fmt(ticket.cost), opt_winnings])
+      printer.bottom
+    end
+
+    def display_name
+      @dn ||= ticket.lotto.name.upcase.gsub(/(.)/, '\1 ')
     end
   end
 
