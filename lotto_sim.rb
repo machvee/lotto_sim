@@ -1,5 +1,3 @@
-require 'ruby-prof'
-
 module LottoSim
 
   JACKPOT = 'J'
@@ -26,10 +24,7 @@ module LottoSim
     end
 
     def matches(lotto_draw)
-      draws = lotto_draw.numbers.each
-      numbers.map do |set|
-        set & draws.next
-      end
+      lotto_draw.numbers.zip(numbers).map {|a| a.reduce(&:&)}
     end
 
     def inspect
@@ -361,9 +356,11 @@ module LottoSim
     attr_reader     :bank
     attr_reader     :outcomes
     attr_reader     :printer
-   
+    attr_reader     :quiet
+
     def initialize(options={})
       config = options[:config]||DEFAULT_CONFIG
+      @quiet = options.fetch(:quiet) {false}
       @name = config[:name]
       @printer = BoxPrinter.new(TICKET_PRINT_WIDTH, TICKET_BORDER_COLOR)
       @game_picker = GamePicker.new(config[:numbers])
@@ -472,37 +469,34 @@ module LottoSim
     NUM_TOP_WINNERS_TO_SHOW=10
     REPORT_INTERVAL=1000
     REPORTING_THRESHOLD=10000
-    DEFAULT_TICKETS_TO_PLAY=5
-    DEFAULT_DRAWS_PER_TICKET=1
+    DEFAULT_TICKETS_TO_PLAY=1000
+    DEFAULT_DRAWS_PER_TICKET=5
 
     def play(options={})
-      num_tickets = options[:num_tickets]||DEFAULT_TICKETS_TO_PLAY
-      num_draws_per_ticket = options[:num_draws_per_ticket]||DEFAULT_DRAWS_PER_TICKET
-      quiet = options[:quiet]||false
+      num_tickets = options[:tickets].to_i||DEFAULT_TICKETS_TO_PLAY
+      num_draws_per_ticket = options[:draws].to_i||DEFAULT_DRAWS_PER_TICKET
 
+      report_msg("Buying tickets...", num_tickets)
       num_tickets.times {|i|
         buy_ticket(num_draws_per_ticket)
-        puts(i) if i%REPORT_INTERVAL == 0 && num_tickets > REPORTING_THRESHOLD unless quiet
+        report_count(i, num_tickets)
       }
-      puts num_tickets unless quiet
 
       draw
 
-      puts "Checking tickets...." unless quiet
-      check_tickets(quiet: quiet)
-
+      check_tickets
       winning_tickets(NUM_TOP_WINNERS_TO_SHOW).each {|t| t.wins}
+      stats
       self
     end
 
     def check_tickets(options={})
-      quiet = options[:quiet] || false
       num_tickets = tickets.length
+      report_msg("Checking tickets....", num_tickets)
       tickets.each_with_index {|ticket, i|
         ticket.check
-        puts(i) if i%REPORT_INTERVAL == 0 && num_tickets > REPORTING_THRESHOLD unless quiet
+        report_count(i, num_tickets)
       }
-      puts num_tickets unless quiet
       self
     end
 
@@ -524,11 +518,21 @@ module LottoSim
 
     def stats
       outcomes.values.each { |v| v.stat}
+      puts self
+      puts bank
       self
     end
 
     def inspect
       to_s
+    end
+
+    def report_count(i, max)
+      puts(i) if i%REPORT_INTERVAL == 0 && max > REPORTING_THRESHOLD unless quiet
+    end
+
+    def report_msg(msg, max)
+      puts(msg) if max > REPORTING_THRESHOLD unless quiet
     end
 
     def to_s
