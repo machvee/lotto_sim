@@ -68,8 +68,8 @@ module LottoSim
       lotto.not_drawn_check
       return if checked
       picks.each do |pick|
-        pick.outcome = lotto.pick_outcome(pick)
-        @winnings += pick.outcome.payout unless pick.outcome.jackpot?
+        outcome = lotto.match(pick)
+        @winnings += outcome.payout unless outcome.jackpot?
       end
       @checked = true
     end
@@ -420,10 +420,6 @@ module LottoSim
       official_draw
     end
 
-    def pick_outcome(pick)
-      match(pick)
-    end
-
     def payout(result)
       outcomes[result].payout
     end
@@ -460,10 +456,10 @@ module LottoSim
 
       matching_numbers = pick.matches(official_draw)
       numbers_matched = matching_numbers.map(&:length)
-      outcome = outcomes[numbers_matched]
-      outcome.count += 1
-      bank.debit(outcome.payout) unless outcome.jackpot?
-      outcome
+      pick.outcome = outcomes[numbers_matched]
+      pick.outcome.count += 1
+      bank.debit(pick.outcome.payout) unless pick.outcome.jackpot?
+      pick.outcome
     end
 
     def played_check
@@ -561,8 +557,8 @@ module LottoSim
          plays.comma,
          current_jackpot.money]
     end
-
   end
+
 
   class Bank
     attr_reader  :credits
