@@ -85,7 +85,7 @@ module LottoSim
     end
 
     def inspect
-      "Ticket #{number}: #{num_picks} picks for #{Lottery.currency_fmt(cost)}%s" % (checked ? (", winnings: %s" % Lottery.currency_fmt(winnings)) : "")
+      "Ticket #{number}: #{num_picks} picks for #{cost.money}%s" % (checked ? (", winnings: %s" % winnings.money) : "")
     end
   end
 
@@ -134,8 +134,8 @@ module LottoSim
 
     def print_footer
       printer.lbreak
-      opt_winnings = ticket.checked ? ((" "*14) + "Winnings:  %s" % Lottery.currency_fmt(ticket.winnings)) : ""
-      printer.ljust("Cost:  %s%s" % [Lottery.currency_fmt(ticket.cost), opt_winnings])
+      opt_winnings = ticket.checked ? ((" "*14) + "Winnings:  %s" % ticket.winnings.money) : ""
+      printer.ljust("Cost:  %s%s" % [ticket.cost.money, opt_winnings])
       printer.bottom
     end
 
@@ -248,7 +248,7 @@ module LottoSim
     end
 
     def payout_s
-      payout.zero? ? '' : ("%s%s" % [jackpot? ? "*** JACKPOT *** " : '', Lottery.currency_fmt(payout)])
+      payout.zero? ? '' : ("%s%s" % [jackpot? ? "*** JACKPOT *** " : '', payout.money])
     end
 
     def inspect
@@ -261,11 +261,11 @@ module LottoSim
 
     def stat
       perc = (count.to_f / lotto.plays) * 100.0
-      puts "[%s] - %8s: %20s %20s %10.4f%%" % [
+      puts "[%s] - %8s: %22s %22s %10.6f%%" % [
         self,
-        Lottery.comma_sep_num(count),
-        Lottery.currency_fmt(payout),
-        Lottery.currency_fmt(count * payout),
+        count.comma,
+        payout.money,
+        (count * payout).money,
         perc
       ]
     end
@@ -395,7 +395,7 @@ module LottoSim
 
     def current_jackpot_payout
       not_drawn_check
-      current_jackpot / jackpot_outcome.count
+      jackpot_outcome.count.zero? ? current_jackpot : (current_jackpot / jackpot_outcome.count)
     end
 
     def one_in_how_many_jackpot_odds
@@ -403,12 +403,14 @@ module LottoSim
     end
 
     def odds_of_winning_jackpot
-      "Odds of winning the JACKPOT are 1 in %s" % Lottery.comma_sep_num(@game_picker.odds)
+      "Odds of winning the JACKPOT are 1 in %s" % @game_picker.odds.comma
     end
 
     def how_to_play
-      puts @game_picker
-      puts odds_of_winning_jackpot
+      puts "\n"
+      puts @game_picker + "\n"
+      puts odds_of_winning_jackpot + "\n"
+      self
     end
 
     def draw
@@ -465,11 +467,11 @@ module LottoSim
     end
 
     def played_check
-      raise "already drawn" if played
+      puts "already drawn" if played
     end
 
     def not_drawn_check
-      raise "lottery not yet drawn" unless played
+      puts "lottery not yet drawn" unless played
     end
 
     def init_outcomes
@@ -480,7 +482,7 @@ module LottoSim
     end
 
     def jackpot_outcome
-      outcomes.select {|k,v| v.jackpot?}.first
+      @_jo ||= outcomes.values.select {|v| v.jackpot?}.first
     end
 
     NUM_TOP_WINNERS_TO_SHOW=10
@@ -555,18 +557,11 @@ module LottoSim
     def to_s
       "%s: %s tickets purchased, %s plays, current jackpot: %s" % 
         [name,
-         Lottery.comma_sep_num(tickets.length),
-         Lottery.comma_sep_num(plays),
-         Lottery.currency_fmt(current_jackpot)]
+         tickets.length.comma,
+         plays.comma,
+         current_jackpot.money]
     end
 
-    def self.comma_sep_num(num)
-      num.to_s.chars.reverse.each_slice(3).map(&:join).join(",").reverse
-    end
-
-    def self.currency_fmt(amt)
-      "$%s.00" % Lottery.comma_sep_num(amt)
-    end
   end
 
   class Bank
@@ -593,7 +588,7 @@ module LottoSim
     end
 
     def to_s
-      "balance: #{Lottery.currency_fmt(balance)}  (credits: #{Lottery.currency_fmt(credits)}, debits: #{Lottery.currency_fmt(debits)})"
+      "balance: #{balance.money}  (credits: #{credits.money}, debits: #{debits.money})"
     end
 
     def inspect
@@ -683,6 +678,24 @@ module LottoSim
   end
 
 
+end
+
+module Formatters
+  def money
+    "$%s.00" % comma
+  end
+
+  def comma
+    to_s.chars.reverse.each_slice(3).map(&:join).join(",").reverse
+  end
+end
+
+class Bignum
+  include Formatters
+end
+
+class Fixnum
+  include Formatters
 end
 
 class String
