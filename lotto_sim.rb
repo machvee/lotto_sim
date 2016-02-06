@@ -14,10 +14,6 @@ module LottoSim
     end
 
     def to_s
-      print_picks
-    end
-
-    def print_picks
       numbers.map { |n_set|
         n_set.map {|n| "%02d" % n}.join("    ")
       }.join("  -  ")
@@ -49,13 +45,13 @@ module LottoSim
       @num_picks = num_picks
       @picks = lotto.random_picks(num_picks)
       @cost = lotto.calculate_cost(num_picks)
-      @printer = TicketPrinter.new(self)
+      @printer = lotto.ticket_printer
       @winnings = 0
       @checked = false
     end
 
     def print(only_winners=false)
-      printer.print(only_winners)
+      printer.print(self, only_winners)
       self
     end
 
@@ -91,48 +87,52 @@ module LottoSim
 
 
   class TicketPrinter
-    attr_reader   :ticket
-    attr_reader   :printer
 
-    def initialize(ticket)
-      @ticket = ticket
-      @printer = ticket.lotto.printer
+    TICKET_PRINT_WIDTH=70
+    TICKET_BORDER_COLOR=:green
+
+    attr_reader   :printer
+    attr_reader   :lotto
+
+    def initialize(lotto)
+      @lotto = lotto
+      @printer = BoxPrinter.new(TICKET_PRINT_WIDTH, TICKET_BORDER_COLOR)
     end
 
-    def print(only_winners=false)
-      print_header
-      print_picks(only_winners)
-      print_footer
+    def print(ticket, only_winners=false)
+      print_header(ticket)
+      print_picks(ticket, only_winners)
+      print_footer(ticket)
     end
 
     private
 
-    def print_header
+    def print_header(ticket)
       puts "\n"
       printer.top
       printer.center(" #{display_name}   Ticket: \##{ticket.number}")
       printer.sep
-      if ticket.lotto.played
+      if lotto.played
         printer.lbreak
-        printer.center("**  %s  **" % ticket.lotto.official_draw)
+        printer.center("**  %s  **" % lotto.official_draw)
       end
       printer.lbreak
       printer.ljust("Plays: #{ticket.num_picks}")
       printer.lbreak
     end
 
-    def print_picks(only_winners=false)
+    def print_picks(ticket, only_winners=false)
       ticket.picks.each do |pick|
         next if only_winners && pick.outcome.payout == 0
         if ticket.checked
-          printer.ljust("  %s%s" % [pick.print_picks, pick.outcome.nil? ? "" : ("   %s" % pick.outcome.print)])
+          printer.ljust("  %s%s" % [pick, pick.outcome.nil? ? "" : ("   %s" % pick.outcome.print)])
         else
           printer.center("%s" % pick)
         end
       end
     end
 
-    def print_footer
+    def print_footer(ticket)
       printer.lbreak
       opt_winnings = ticket.checked ? ((" "*14) + "Winnings:  %s" % ticket.winnings.money) : ""
       printer.ljust("Cost:  %s%s" % [ticket.cost.money, opt_winnings])
@@ -140,7 +140,7 @@ module LottoSim
     end
 
     def display_name
-      @dn ||= ticket.lotto.name.upcase.gsub(/(.)/, '\1 ')
+      @dn ||= lotto.name.upcase.gsub(/(.)/, '\1 ')
     end
   end
 
@@ -173,16 +173,16 @@ module LottoSim
       # returns n as a Float, where n is the odds 1/n of guessing
       # the contents of a pick in any order
       #
-      @_odds ||= choose_multiple.to_f/picks_multiple
+      @_odds ||= odds_choose_multiple.to_f/odds_picks_multiple
     end
 
     private 
 
-    def picks_multiple
+    def odds_picks_multiple
       @_npf ||= [*1..num_picks].inject(:*)
     end
 
-    def choose_multiple
+    def odds_choose_multiple
       @_ch ||= begin 
         start = max - num_picks + 1
         [*start..max].inject(:*)
@@ -357,9 +357,6 @@ module LottoSim
 
     DEFAULT_CONFIG = FLORIDA_LOTTO_CONFIG
 
-    TICKET_PRINT_WIDTH=70
-    TICKET_BORDER_COLOR=:green
-
     attr_reader     :played
     attr_reader     :official_draw # the current, official evening draw
     attr_reader     :name
@@ -372,20 +369,20 @@ module LottoSim
     attr_reader     :ticket_counter
     attr_reader     :bank
     attr_reader     :outcomes
-    attr_reader     :printer
+    attr_reader     :ticket_printer
     attr_reader     :quiet
 
     def initialize(options={})
       config = options[:config]||DEFAULT_CONFIG
       @quiet = options.fetch(:quiet) {false}
       @name = config[:name]
-      @printer = BoxPrinter.new(TICKET_PRINT_WIDTH, TICKET_BORDER_COLOR)
       @game_picker = GamePicker.new(config[:numbers])
       @ticket_picker = GamePicker.new(config[:numbers])
       @start_jackpot = config[:start_jackpot]
       @bank = Bank.new(start_jackpot)
       @payouts = config[:payouts]
       @cost = config[:cost]
+      @ticket_printer = TicketPrinter.new(self)
       init_setup
     end
 
