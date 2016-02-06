@@ -404,9 +404,8 @@ module LottoSim
     end
 
     def how_to_play
-      puts "\n"
-      puts @game_picker + "\n"
-      puts odds_of_winning_jackpot + "\n"
+      puts "\n%s\n\n" % @game_picker
+      puts "%s\n\n" % odds_of_winning_jackpot 
       self
     end
 
