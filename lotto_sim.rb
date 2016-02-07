@@ -19,8 +19,8 @@ module LottoSim
       }.join("  -  ")
     end
 
-    def matches(lotto_draw)
-      lotto_draw.numbers.zip(numbers).map {|a| a.reduce(&:&)}
+    def &(other_pick)
+      other_pick.numbers.zip(numbers).map {|a| a.reduce(&:&)}
     end
 
     def inspect
@@ -450,7 +450,7 @@ module LottoSim
     def match(pick)
       not_drawn_check
 
-      matching_numbers = pick.matches(official_draw)
+      matching_numbers = pick & official_draw
       numbers_matched = matching_numbers.map(&:length)
       pick.outcome = outcomes[numbers_matched]
       pick.outcome.count += 1
