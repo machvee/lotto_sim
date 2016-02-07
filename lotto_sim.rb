@@ -2,6 +2,87 @@ module LottoSim
 
   JACKPOT = 'J'
 
+  POWERBALL_CONFIG = {
+    name: "PowerBall",
+    cost:  2,
+    start_jackpot: 40_000_000,
+    numbers: [
+      {
+        num_picks: 5,
+        picks_max: 69
+      },
+      {
+        num_picks: 1,
+        picks_max: 26
+      }
+    ],
+    payouts: {
+      [5, 1] =>   JACKPOT,
+      [5, 0] => 1_000_000,
+      [4, 1] =>    50_000,
+      [4, 0] =>       100,
+      [3, 1] =>       100,
+      [3, 0] =>         7,
+      [2, 1] =>         7,
+      [1, 1] =>         4,
+      [0, 1] =>         4,
+      [2, 0] =>         0,
+      [1, 0] =>         0,
+      [0, 0] =>         0
+    }
+  }
+
+  MEGA_MILLIONS_CONFIG = {
+    name: "Mega Millions",
+    cost:  1,
+    start_jackpot: 15_000_000,
+    numbers: [
+      {
+        num_picks: 5,
+        picks_max: 75
+      },
+      {
+        num_picks: 1,
+        picks_max: 15
+      }
+    ],
+    payouts: {
+      [5, 1] =>   JACKPOT,
+      [5, 0] => 1_000_000,
+      [4, 1] =>     5_000,
+      [4, 0] =>       500,
+      [3, 1] =>        50,
+      [3, 0] =>         5,
+      [2, 1] =>         5,
+      [1, 1] =>         2,
+      [0, 1] =>         1,
+      [2, 0] =>         0,
+      [1, 0] =>         0,
+      [0, 0] =>         0
+    }
+  }
+
+  FLORIDA_LOTTO_CONFIG = {
+    name: "Florida Lotto",
+    cost:  1,
+    start_jackpot: 1_000_000,
+    numbers: [
+      {
+        num_picks: 6,
+        picks_max: 53
+      }
+    ],
+    payouts: {
+      [6] =>  JACKPOT,
+      [5] =>    5_000,
+      [4] =>       70,
+      [3] =>        5,
+      [2] =>        0,
+      [1] =>        0,
+      [0] =>        0
+    }
+  }
+
   class Pick 
     attr_reader    :numbers
     attr_accessor  :outcome
@@ -296,88 +377,6 @@ module LottoSim
       ]
     end
   end
-
-  POWERBALL_CONFIG = {
-    name: "PowerBall",
-    cost:  2,
-    start_jackpot: 40_000_000,
-    numbers: [
-      {
-        num_picks: 5,
-        picks_max: 69
-      },
-      {
-        num_picks: 1,
-        picks_max: 26
-      }
-    ],
-    payouts: {
-      [5, 1] =>   JACKPOT,
-      [5, 0] => 1_000_000,
-      [4, 1] =>    50_000,
-      [4, 0] =>       100,
-      [3, 1] =>       100,
-      [3, 0] =>         7,
-      [2, 1] =>         7,
-      [1, 1] =>         4,
-      [0, 1] =>         4,
-      [2, 0] =>         0,
-      [1, 0] =>         0,
-      [0, 0] =>         0
-    }
-  }
-
-  MEGA_MILLIONS_CONFIG = {
-    name: "Mega Millions",
-    cost:  1,
-    start_jackpot: 15_000_000,
-    numbers: [
-      {
-        num_picks: 5,
-        picks_max: 75
-      },
-      {
-        num_picks: 1,
-        picks_max: 15
-      }
-    ],
-    payouts: {
-      [5, 1] =>   JACKPOT,
-      [5, 0] => 1_000_000,
-      [4, 1] =>     5_000,
-      [4, 0] =>       500,
-      [3, 1] =>        50,
-      [3, 0] =>         5,
-      [2, 1] =>         5,
-      [1, 1] =>         2,
-      [0, 1] =>         1,
-      [2, 0] =>         0,
-      [1, 0] =>         0,
-      [0, 0] =>         0
-    }
-  }
-
-  FLORIDA_LOTTO_CONFIG = {
-    name: "Florida Lotto",
-    cost:  1,
-    start_jackpot: 1_000_000,
-    numbers: [
-      {
-        num_picks: 6,
-        picks_max: 53
-      }
-    ],
-    payouts: {
-      [6] =>  JACKPOT,
-      [5] =>    5_000,
-      [4] =>       70,
-      [3] =>        5,
-      [2] =>        0,
-      [1] =>        0,
-      [0] =>        0
-    }
-  }
-
 
   class Lottery
 
