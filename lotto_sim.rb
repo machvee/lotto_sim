@@ -39,12 +39,12 @@ module LottoSim
     attr_reader  :checked
     attr_reader  :printer
 
-    def initialize(lotto, num_picks)
+    def initialize(lotto, numbers)
       @lotto = lotto
       @number = lotto.next_ticket_number
-      @num_picks = num_picks
-      @picks = lotto.random_picks(num_picks)
-      @cost = lotto.calculate_cost(num_picks)
+      @picks = gen_picks(numbers)
+      @num_picks = picks.length
+      @cost = lotto.calculate_cost(picks.length)
       @printer = lotto.ticket_printer
       @winnings = 0
       @checked = false
@@ -83,6 +83,13 @@ module LottoSim
     def inspect
       "Ticket #{number}: #{num_picks} picks for #{cost.money}%s" % (checked ? (", winnings: %s" % winnings.money) : "")
     end
+
+    private
+
+    def gen_picks(picks)
+      picks.map {|p| Pick.new(p)}
+    end
+
   end
 
 
@@ -144,6 +151,11 @@ module LottoSim
     end
   end
 
+  class RandomTicket < Ticket
+    def initialize(lotto, num_picks)
+      super(lotto, lotto.random_picks(num_picks))
+    end
+  end
 
   class Generator
     #
@@ -152,6 +164,7 @@ module LottoSim
     # options[:seed]
     #
     attr_reader   :num_picks
+    attr_reader   :range
     attr_reader   :pick_array
     attr_reader   :max
 
@@ -160,7 +173,8 @@ module LottoSim
       @max = options[:picks_max]
       raise "num_picks must be less than #{max}" if num_picks > max
 
-      @pick_array = [*1..max]
+      @range = 1..max
+      @pick_array = [*range]
       @prng = Random.new(options[:seed]||Random.new_seed)
     end
 
@@ -174,6 +188,10 @@ module LottoSim
       # the contents of a pick in any order
       #
       @_odds ||= odds_choose_multiple.to_f/odds_picks_multiple
+    end
+
+    def valid?(numbers)
+      numbers.uniq.length == num_picks && numbers.all? {|n| range.include?(n)}
     end
 
     private 
@@ -202,11 +220,19 @@ module LottoSim
     end
 
     def pick
-      Pick.new(@generators.map(&:pick))
+      @generators.map(&:pick)
     end
 
     def odds
       @_odds ||= @generators.map(&:odds).inject(:*).to_i
+    end
+
+    def invalid?(numbers)
+      e = numbers.each
+      @generators.map do |g|
+        n = e.next
+        !g.valid?(n)
+      end.any?
     end
 
     def to_s
@@ -411,7 +437,7 @@ module LottoSim
 
     def draw
       played_check
-      @official_draw = @game_picker.pick
+      @official_draw = Pick.new(@game_picker.pick)
       @played = true
       official_draw
     end
@@ -420,12 +446,38 @@ module LottoSim
       outcomes[result].payout
     end
 
-    def buy_ticket(num_picks=1)
+    def buy_ticket(options={})
+      #
+      # buy_tickets(10) # 10 random selections
+      #   --or--
+      # buy_tickets(1, [[7,17,33,38,44],[11]]) # play this number
+      #
       played_check
-      @plays += num_picks
-      bank.credit(calculate_cost(num_picks))
-      t = Ticket.new(self, num_picks)
+      return nil if invalid_picks?(options[:numbers]) unless options[:numbers].nil?
+
+      create_ticket(options)
+    end
+
+    def invalid_picks?(numbers)
+      numbers.each do |set|
+        if @game_picker.invalid?(set)
+          puts "%s is not a valid pick" % numbers
+          how_to_play
+          return true
+        end
+      end
+      false
+    end
+
+    def create_ticket(options)
+      t = if options[:numbers].nil?
+        RandomTicket.new(self, options.fetch(:num_picks) {1})
+      else
+        Ticket.new(self, options[:numbers].map {|s| s.map(&:sort)})
+      end
       tickets << t
+      bank.credit(calculate_cost(t.num_picks))
+      @plays += t.num_picks
       t
     end
 
@@ -481,15 +533,15 @@ module LottoSim
     REPORT_INTERVAL=1000
     REPORTING_THRESHOLD=10000
     DEFAULT_TICKETS_TO_PLAY=1000
-    DEFAULT_DRAWS_PER_TICKET=5
+    DEFAULT_PICKS_PER_TICKET=5
 
     def play(options={})
-      num_tickets = options[:tickets].to_i||DEFAULT_TICKETS_TO_PLAY
-      num_draws_per_ticket = options[:draws].to_i||DEFAULT_DRAWS_PER_TICKET
+      num_tickets = (options.fetch(:tickets) {DEFAULT_TICKETS_TO_PLAY}).to_i
+      num_draws_per_ticket = (options.fetch(:picks) {DEFAULT_PICKS_PER_TICKET}).to_i
 
       report_msg("Buying tickets...", num_tickets)
       num_tickets.times {|i|
-        buy_ticket(num_draws_per_ticket)
+        buy_ticket(num_picks: num_draws_per_ticket)
         report_count(i, num_tickets)
       }
 
@@ -668,9 +720,8 @@ module LottoSim
       puts str
     end
   end
-
-
 end
+
 
 module Formatters
   def money
@@ -681,6 +732,7 @@ module Formatters
     to_s.chars.reverse.each_slice(3).map(&:join).join(",").reverse
   end
 end
+
 
 class Bignum
   include Formatters
