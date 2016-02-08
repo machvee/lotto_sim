@@ -240,23 +240,22 @@ module LottoSim
 
   class Generator
     #
-    # generates a sorted array of <options[:num_picks]> numbers chosen 
-    # from 1 to <options[:picks_max]>.   Optionally can be seeded with
-    # options[:seed]
+    # generates a sorted array of <config[:num_picks]> numbers chosen 
+    # from 1 to <config[:picks_max]>.
     #
     attr_reader   :num_picks
     attr_reader   :range
     attr_reader   :pick_array
     attr_reader   :max
 
-    def initialize(options={})
-      @num_picks = options[:num_picks]
-      @max = options[:picks_max]
+    def initialize(config, randomizer)
+      @num_picks = config[:num_picks]
+      @max = config[:picks_max]
       raise "num_picks must be less than #{max}" if num_picks > max
 
       @range = 1..max
       @pick_array = [*range]
-      @prng = Random.new(options[:seed]||Random.new_seed)
+      @prng = randomizer.new_prng
     end
 
     def pick
@@ -296,8 +295,9 @@ module LottoSim
     # e.g.  Picks a set of numbers between 1 and 53, and a Powerball
     # number from 1 to 26
     #
-    def initialize(configs)
-      @generators = configs.map {|config| Generator.new(config)}
+    def initialize(configs, randomizer)
+      @randomizer = randomizer
+      @generators = configs.map {|config| Generator.new(config, @randomizer)}
     end
 
     def pick
@@ -368,7 +368,7 @@ module LottoSim
 
     def stat
       perc = (count.to_f / lotto.plays) * 100.0
-      puts "[%s] - %8s: %22s %22s %10.6f%%" % [
+      puts "[%s] - %11s: %22s %22s %10.6f%%" % [
         self,
         count.comma,
         payout.money,
@@ -377,6 +377,7 @@ module LottoSim
       ]
     end
   end
+
 
   class Lottery
 
@@ -397,12 +398,14 @@ module LottoSim
     attr_reader     :ticket_printer
     attr_reader     :quiet
 
+
     def initialize(options={})
       config = options[:config]||DEFAULT_CONFIG
       @quiet = options.fetch(:quiet) {false}
       @name = config[:name]
-      @game_picker = GamePicker.new(config[:numbers])
-      @ticket_picker = GamePicker.new(config[:numbers])
+      @randomizer = options.fetch(:randomizer) {Randomizer.new}
+      @game_picker = GamePicker.new(config[:numbers], @randomizer)
+      @ticket_picker = GamePicker.new(config[:numbers], @randomizer)
       @start_jackpot = config[:start_jackpot]
       @bank = Bank.new(start_jackpot)
       @payouts = config[:payouts]
@@ -603,6 +606,32 @@ module LottoSim
          tickets.length.comma,
          plays.comma,
          current_jackpot.money]
+    end
+  end
+
+
+  class Randomizer
+    def new_prng
+      Random.new(new_seed)
+    end
+
+    def new_seed
+      Random.new_seed
+    end
+  end
+
+  class SeededRandomizer < Randomizer
+    attr_reader   :seeder
+    attr_reader   :init_seed
+    BIG_NUM = 6347349345764256326431348018374
+
+    def initialize(seed)
+      @init_seed = seed
+      @seeder = Random.new(init_seed)
+    end
+
+    def new_seed
+      @seeder.rand(BIG_NUM)
     end
   end
 
