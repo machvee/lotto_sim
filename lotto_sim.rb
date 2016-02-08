@@ -83,6 +83,7 @@ module LottoSim
     }
   }
 
+
   class Pick 
     attr_reader    :numbers
     attr_accessor  :outcome
@@ -170,7 +171,13 @@ module LottoSim
     def gen_picks(picks)
       picks.map {|p| Pick.new(p)}
     end
+  end
 
+
+  class RandomTicket < Ticket
+    def initialize(lotto, num_picks)
+      super(lotto, lotto.random_picks(num_picks))
+    end
   end
 
 
@@ -232,11 +239,6 @@ module LottoSim
     end
   end
 
-  class RandomTicket < Ticket
-    def initialize(lotto, num_picks)
-      super(lotto, lotto.random_picks(num_picks))
-    end
-  end
 
   class Generator
     #
@@ -455,7 +457,7 @@ module LottoSim
       # buy_tickets(1, [[7,17,33,38,44],[11]]) # play this number
       #
       played_check
-      return nil if invalid_picks?(options[:numbers]) unless options[:numbers].nil?
+      return nil if invalid_picks?(options[:picks]) unless options[:picks].nil?
 
       create_ticket(options)
     end
@@ -472,10 +474,10 @@ module LottoSim
     end
 
     def create_ticket(options)
-      t = if options[:numbers].nil?
-        RandomTicket.new(self, options.fetch(:num_picks) {1})
+      t = if options[:picks].nil?
+        RandomTicket.new(self, options.fetch(:easy_picks) {1})
       else
-        Ticket.new(self, options[:numbers].map {|s| s.map(&:sort)})
+        Ticket.new(self, options[:picks].map {|s| s.map(&:sort)})
       end
       tickets << t
       bank.credit(calculate_cost(t.num_picks))
@@ -543,7 +545,7 @@ module LottoSim
 
       report_msg("Buying tickets...", num_tickets)
       num_tickets.times {|i|
-        buy_ticket(num_picks: num_draws_per_ticket)
+        buy_ticket(easy_picks: num_draws_per_ticket)
         report_count(i, num_tickets)
       }
 
@@ -620,6 +622,7 @@ module LottoSim
     end
   end
 
+
   class SeededRandomizer < Randomizer
     attr_reader   :seeder
     attr_reader   :init_seed
@@ -675,11 +678,13 @@ module LottoSim
     end
   end
 
+
   class Powerball < Lottery
     def initialize(options={})
       super(options.merge(config: POWERBALL_CONFIG))
     end
   end
+
 
   class MegaMillions < Lottery
     def initialize(options={})
@@ -687,11 +692,13 @@ module LottoSim
     end
   end
 
+
   class FloridaLotto < Lottery
     def initialize(options={})
       super(options.merge(config: FLORIDA_LOTTO_CONFIG))
     end
   end
+
 
   class BoxPrinter
     attr_reader   :width
@@ -766,9 +773,11 @@ class Bignum
   include Formatters
 end
 
+
 class Fixnum
   include Formatters
 end
+
 
 class String
   # colorization

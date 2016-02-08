@@ -131,7 +131,7 @@ Pick 5 numbers between 1 and 69, then pick 1 number between 1 and 26
 Odds of winning the JACKPOT are 1 in 292,201,338
 
 => PowerBall: 0 tickets purchased, 0 plays, current jackpot: $40,000,000.00
-> t = p.buy_ticket(num_picks: 5)
+> t = p.buy_ticket(easy_picks: 5)
 > t.print
 ╔══════════════════════════════════════════════════════════════════════╗
 ║                    P O W E R B A L L    Ticket: #1                   ║
@@ -148,8 +148,8 @@ Odds of winning the JACKPOT are 1 in 292,201,338
 ║  Cost:  $20.00                                                       ║
 ╚══════════════════════════════════════════════════════════════════════╝
 > t2 = p.buy_ticket(
-    numbers: [[[ 1,17,31,45,62], [11]], 
-              [[31,46,54,57,68], [20]]]
+    picks: [[[ 1,17,31,45,62], [11]], 
+            [[31,46,54,57,68], [20]]]
   )
 > t2.print
 ╔══════════════════════════════════════════════════════════════════════╗
@@ -206,7 +206,7 @@ require 'lotto_sim'
 include LottoSim
 my_seed = 98762345
 p = Powerball.new(randomizer: SeededRandomizer.new(my_seed))
-10.times {p.buy_ticket(num_picks: 10)}
+10.times {p.buy_ticket(easy_picks: 10)}
 p.draw
 => 04    31    33    40    51  -  25
 p.check_tickets
