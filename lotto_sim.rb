@@ -249,6 +249,7 @@ module LottoSim
     attr_reader   :range
     attr_reader   :pick_array
     attr_reader   :max
+    attr_reader   :freq
 
     def initialize(config, randomizer)
       @num_picks = config[:num_picks]
@@ -256,12 +257,14 @@ module LottoSim
       raise "num_picks must be less than #{max}" if num_picks > max
 
       @range = 1..max
+      @freq = Array.new(max+1) {0}
       @pick_array = [*range]
       @prng = randomizer.new_prng
     end
 
     def pick
-      pick_array.shuffle(random: @prng)[0...num_picks].sort
+      picks = pick_array.shuffle(random: @prng)[0...num_picks].sort
+      tally(picks)
     end
 
     def odds
@@ -277,6 +280,11 @@ module LottoSim
     end
 
     private 
+
+    def tally(picks)
+      picks.each {|n| freq[n] += 1}
+      picks
+    end
 
     def odds_picks_multiple
       @_npf ||= [*1..num_picks].inject(:*)
@@ -326,6 +334,23 @@ module LottoSim
           g.max
         ]
       end.join(", then ").capitalize
+    end
+
+    def stats
+      stats_cols = 8
+      puts "\nSorted Picks Frequency Distribution"
+      @generators.each do |gen|
+        puts "  Numbers from #{gen.range}"
+        gen.freq[1..-1].each_with_index.
+            sort {|(val1, ind1), (val2, ind2)| val2 <=> val1}.
+            each_slice(stats_cols)  do |cols|
+          buf = "    "
+          cols.each do |freq, num|
+            buf << "%02d:%7d   " % [num+1, freq]
+          end
+          puts buf
+        end
+      end
     end
   end
 
@@ -584,8 +609,10 @@ module LottoSim
     end
 
     def stats
-      outcomes.values.each { |v| v.stat}
       puts self
+      puts "\n"
+      outcomes.values.each { |v| v.stat}
+      @ticket_picker.stats
       puts bank
       self
     end
@@ -663,7 +690,7 @@ module LottoSim
     end
 
     def to_s
-      "balance: #{balance.money}  (credits: #{credits.money}, debits: #{debits.money})"
+      "\nLottery Bank - Balance: #{balance.money}  (Credits: #{credits.money}, Debits: #{debits.money})"
     end
 
     def inspect
