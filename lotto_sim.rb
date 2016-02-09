@@ -613,6 +613,7 @@ module LottoSim
       puts "\n"
       outcomes.values.each { |v| v.stat}
       @ticket_picker.stats
+      puts "\n"
       puts bank
       self
     end
@@ -690,7 +691,7 @@ module LottoSim
     end
 
     def to_s
-      "\nLottery Bank - Balance: #{balance.money}  (Credits: #{credits.money}, Debits: #{debits.money})"
+      "Lottery Bank - Balance: #{balance.money}  (Credits: #{credits.money}, Debits: #{debits.money})"
     end
 
     def inspect
