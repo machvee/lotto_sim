@@ -568,8 +568,8 @@ module LottoSim
       @_jo ||= outcomes.values.select {|v| v.jackpot?}.first
     end
 
-    NUM_TOP_WINNERS_TO_SHOW=4
-    REPORT_INTERVAL=1000
+    NUM_TOP_WINNERS_TO_SHOW=3
+    REPORT_INTERVAL=5000
     REPORTING_THRESHOLD=10000
     DEFAULT_TICKETS_TO_PLAY=1000
     DEFAULT_PICKS_PER_TICKET=5
@@ -588,8 +588,8 @@ module LottoSim
       puts "\nThe Nightly Draw is...   #{d}\n\n"
 
       check_tickets
-      winning_tickets(NUM_TOP_WINNERS_TO_SHOW).each {|t| t.wins}
       stats
+      winning_tickets(NUM_TOP_WINNERS_TO_SHOW).each {|t| t.wins}
       self
     end
 
@@ -642,11 +642,18 @@ module LottoSim
     end
 
     def to_s
-      "%s: %s tickets purchased, %s plays, current jackpot: %s" % 
+      any_draw = if played
+        "\n\nDraw:  %s" % official_draw
+      else
+        ""
+      end
+
+      "%s: %s tickets purchased, %s plays, current jackpot: %s%s" % 
         [name,
          tickets.length.comma,
          plays.comma,
-         current_jackpot.money]
+         current_jackpot.money,
+         any_draw]
     end
   end
 
