@@ -299,15 +299,25 @@ module LottoSim
   end
 
 
+  class DrawGenerator < Generator
+    def pick
+      picks = pick_array
+      @prng.rand(5..10).times { picks = picks.shuffle(random: @prng) }
+      picks = picks[0...num_picks].sort
+      tally(picks)
+    end
+  end
+
+
   class GamePicker
     #
     # picks one or more sets of numbers chosen via Generators
     # e.g.  Picks a set of numbers between 1 and 53, and a Powerball
     # number from 1 to 26
     #
-    def initialize(configs, randomizer)
+    def initialize(configs, randomizer, generator=Generator)
       @randomizer = randomizer
-      @generators = configs.map {|config| Generator.new(config, @randomizer)}
+      @generators = configs.map {|config| generator.new(config, @randomizer)}
     end
 
     def pick
@@ -431,7 +441,7 @@ module LottoSim
       @quiet = options.fetch(:quiet) {false}
       @name = config[:name]
       @randomizer = options.fetch(:randomizer) {Randomizer.new}
-      @game_picker = GamePicker.new(config[:numbers], @randomizer)
+      @game_picker = GamePicker.new(config[:numbers], @randomizer, DrawGenerator)
       @ticket_picker = GamePicker.new(config[:numbers], @randomizer)
       @start_jackpot = config[:start_jackpot]
       @bank = Bank.new(start_jackpot)
@@ -558,7 +568,7 @@ module LottoSim
       @_jo ||= outcomes.values.select {|v| v.jackpot?}.first
     end
 
-    NUM_TOP_WINNERS_TO_SHOW=10
+    NUM_TOP_WINNERS_TO_SHOW=4
     REPORT_INTERVAL=1000
     REPORTING_THRESHOLD=10000
     DEFAULT_TICKETS_TO_PLAY=1000
@@ -574,7 +584,8 @@ module LottoSim
         report_count(i, num_tickets)
       }
 
-      draw
+      d = draw
+      puts "\nThe Nightly Draw is...   #{d}\n\n"
 
       check_tickets
       winning_tickets(NUM_TOP_WINNERS_TO_SHOW).each {|t| t.wins}
