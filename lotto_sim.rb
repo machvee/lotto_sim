@@ -263,8 +263,7 @@ module LottoSim
     end
 
     def pick
-      picks = pick_array.shuffle(random: @prng)[0...num_picks].sort
-      tally(picks)
+      tally(randomize(pick_array)[0...num_picks].sort)
     end
 
     def odds
@@ -280,6 +279,10 @@ module LottoSim
     end
 
     private 
+
+    def randomize(picks)
+      picks.shuffle(random: @prng)
+    end
 
     def tally(picks)
       picks.each {|n| freq[n] += 1}
@@ -300,11 +303,18 @@ module LottoSim
 
 
   class DrawGenerator < Generator
-    def pick
-      picks = pick_array
-      @prng.rand(5..10).times { picks = picks.shuffle(random: @prng) }
-      picks = picks[0...num_picks].sort
-      tally(picks)
+    #
+    # do some extra shuffling for the draw to simulate
+    # the randomness of the number balls bouncing around
+    # before being selected
+    #
+    SHUFFLER_RANGE=10..20
+    private
+
+    def randomize(picks)
+      shuffle_picks = picks
+      @prng.rand(SHUFFLER_RANGE).times { shuffle_picks = shuffle_picks.shuffle(random: @prng) }
+      shuffle_picks
     end
   end
 
