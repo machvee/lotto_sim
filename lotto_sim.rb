@@ -143,7 +143,7 @@ module LottoSim
     end
 
     def check
-      lotto.not_drawn_check
+      return if lotto.not_drawn_check
       return if checked
       picks.each do |pick|
         outcome = lotto.match(pick)
@@ -153,7 +153,7 @@ module LottoSim
     end
 
     def award_any_jackpot
-      lotto.not_drawn_check
+      return if lotto.not_drawn_check
       picks.each do |pick|
         if pick.outcome.jackpot?
           @winnings += pick.outcome.payout
@@ -466,7 +466,7 @@ module LottoSim
     end
 
     def current_jackpot_payout
-      not_drawn_check
+      return if not_drawn_check
       jackpot_outcome.count.zero? ? current_jackpot : (current_jackpot / jackpot_outcome.count)
     end
 
@@ -485,7 +485,7 @@ module LottoSim
     end
 
     def draw
-      played_check
+      return if played_check
       @official_draw = Pick.new(@game_picker.pick)
       @played = true
       official_draw
@@ -501,7 +501,7 @@ module LottoSim
       #   --or--
       # buy_tickets(1, [[7,17,33,38,44],[11]]) # play this number
       #
-      played_check
+      return if played_check
       return nil if invalid_picks?(options[:picks]) unless options[:picks].nil?
 
       create_ticket(options)
@@ -549,7 +549,7 @@ module LottoSim
     end
 
     def match(pick)
-      not_drawn_check
+      return if not_drawn_check
 
       matching_numbers = pick & official_draw
       numbers_matched = matching_numbers.map(&:length)
@@ -561,10 +561,12 @@ module LottoSim
 
     def played_check
       puts "already drawn" if played
+      played
     end
 
     def not_drawn_check
       puts "lottery not yet drawn" unless played
+      !played
     end
 
     def init_outcomes

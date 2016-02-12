@@ -78,7 +78,7 @@ describe Ticket, "A lottery Ticket" do
     @ticket = Ticket.new(@lottery, [@numbers])
   end
 
-  it "should have readers" do
+  it "should have readers with expected values after initialize" do
     @ticket.lotto.must_equal @lottery
     @ticket.number.must_be :>, 0 
     @ticket.num_picks.must_equal 1
@@ -87,5 +87,9 @@ describe Ticket, "A lottery Ticket" do
     @ticket.winnings.must_equal 0
     @ticket.checked.must_equal false
     @ticket.printer.wont_equal nil
+  end
+
+  it "should print a message when a ticket is checked before the lottery is drawn" do
+    assert_output(stdout="lottery not yet drawn\n") { @ticket.check }
   end
 end
