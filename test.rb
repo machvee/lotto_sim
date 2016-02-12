@@ -93,3 +93,16 @@ describe Ticket, "A lottery Ticket" do
     assert_output(stdout="lottery not yet drawn\n") { @ticket.check }
   end
 end
+
+describe Lottery, "A TestLottery" do
+  before do
+    @seed = 1000983364347
+    @lottery = TestLottery.new(randomizer: SeededRandomizer.new(@seed))
+    @expected_draw = [[1,9,20,34,50],[14]]
+  end
+
+  it "should have the expected draw given the seed" do
+    nightly_draw = @lottery.draw
+    nightly_draw.numbers.must_equal(@expected_draw)
+  end
+end
