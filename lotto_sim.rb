@@ -680,6 +680,11 @@ module LottoSim
 
 
   class SeededRandomizer < Randomizer
+    #
+    # Used to get repeatable outcome in successive lottery runs
+    #
+    # usage:  l = Lottery.new(randomizer: SeededRandomizer.new(<some number>))
+    #
     attr_reader   :seeder
     attr_reader   :init_seed
     BIG_NUM = 6347349345764256326431348018374
