@@ -71,9 +71,11 @@ end
 
 describe Generator, "A random number set generator" do
   before do
+    @num = 20
+    @max = 100
     @config = {
-      num_picks: 20,
-      picks_max: 100
+      num_picks: @num,
+      picks_max: @max
     }
     @seed = 918273645 # yields the random array in @expected_pick
     @expected_pick = [8, 9, 16, 23, 29, 36, 44, 49, 51, 56, 60, 68, 71, 75, 80, 81, 86, 87, 93, 94]
@@ -92,23 +94,23 @@ describe Generator, "A random number set generator" do
   end
 
   it "should have expected odds" do
-    odds = ([*(100-20+1)..100].inject(:*).to_f/[*1..20].inject(:*)).to_i
+    odds = ([*(@max-@num+1)..@max].inject(:*).to_f/[*1..@num].inject(:*)).to_i
     @generator.odds.must_equal(odds)
   end
 
   it "should tally frequency distribution correctly" do
-    (1..100).each do |v|
+    (1..@max).each do |v|
       @generator.freq[v].must_equal(@expected_pick.include?(v) ? 1 : 0)
     end
   end
 
   it "should act as a validator for manual picks" do
     {
-      is_not_long_enough:   [*1..10],
-      is_too_long:          [*1..21],
-      has_dups:             [*1..19, 15],
-      is_out_of_range_low:  [*0..19],
-      is_out_of_range_high: [*1..19, 101]
+      is_not_long_enough:   [*1..(@num/2)],
+      is_too_long:          [*1..(@num+1)],
+      has_dups:             [*1..(@num-1), (@num/2)],
+      is_out_of_range_low:  [*0..(@num-1)],
+      is_out_of_range_high: [*1..(@num-1), @max+1]
     }.each_pair do |type, invalid_pick|
       @generator.valid?(invalid_pick).must_equal(false, "#{invalid_pick} #{type} and shouldn't be valid")
     end
