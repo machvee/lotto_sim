@@ -168,6 +168,7 @@ describe Lottery, "A TestLottery" do
         @ticket.winnings.must_equal(@lottery.outcomes[[2,1]].payout)
       end
     end
+
   end
 
   describe RandomTicket, "A ticket that generates easy picks" do
@@ -185,6 +186,41 @@ describe Lottery, "A TestLottery" do
       @random_ticket.winnings.must_equal 0
       @random_ticket.checked.must_equal false
       @random_ticket.printer.wont_equal nil
+    end
+  end
+
+  describe "remember tickets that have a lottery winning pick" do
+    before do
+      @winning_tickets = []
+      @num_winning_tickets = 4
+      @num_winning_tickets.times do
+        @winning_tickets << @lottery.buy_ticket(picks: [@expected_draw])
+      end
+      @num_non_winning_tickets = 50
+      @num_non_winning_tickets.times do 
+        @lottery.buy_ticket(easy_picks: 5)
+      end
+      @draw = @lottery.draw
+      @lottery.check_tickets
+    end
+
+    it "should have the expected number of tickets purchased" do
+      @lottery.tickets.length.must_equal(@num_winning_tickets + @num_non_winning_tickets)
+    end
+
+    it "should remember the num_winning_tickets" do
+      @draw.numbers.must_equal(@expected_draw)
+      @lottery.num_jackpot_winners.must_equal(@num_winning_tickets)
+    end
+
+    it "should have calculated the correct split jackpot amount to be shared" do
+      @lottery.current_jackpot_payout.must_equal(@lottery.current_jackpot/@num_winning_tickets)
+    end
+
+    it "should calculate each ticket winnings correctly" do
+      @winning_tickets.each do |ticket|
+        ticket.winnings.must_equal(@lottery.current_jackpot/@num_winning_tickets)
+      end
     end
   end
 end

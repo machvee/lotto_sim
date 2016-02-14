@@ -85,6 +85,7 @@ module LottoSim
 
 
   class Pick 
+    attr_reader    :ticket
     attr_reader    :numbers
     attr_accessor  :outcome
 
@@ -146,20 +147,19 @@ module LottoSim
       return if lotto.not_drawn_check
       return if checked
       picks.each do |pick|
-        outcome = lotto.match(pick)
+        outcome = lotto.match(self, pick)
+        #
+        # if jackpot, we need to postpone award of winnings
+        # until we know how many jackpots winners there might be
+        # as they all split the jackpot
+        #
         @winnings += outcome.payout unless outcome.jackpot?
       end
       @checked = true
     end
 
-    def award_any_jackpot
-      return if lotto.not_drawn_check
-      picks.each do |pick|
-        if pick.outcome.jackpot?
-          @winnings += pick.outcome.payout
-          lotto.bank.debit(pick.outcome.payout) 
-        end
-      end
+    def award_jackpot
+      @winnings += lotto.current_jackpot_payout
     end
 
     def inspect
@@ -402,7 +402,7 @@ module LottoSim
     end
 
     def payout_s
-      payout.zero? ? '' : ("%s%s" % [jackpot? ? "*** JACKPOT *** " : '', payout.money])
+      payout.zero? ? '' : ("%s" % payout.money)
     end
 
     def inspect
@@ -444,6 +444,7 @@ module LottoSim
     attr_reader     :outcomes
     attr_reader     :ticket_printer
     attr_reader     :quiet
+    attr_reader     :jackpot_tickets
 
 
     def initialize(options={})
@@ -466,8 +467,11 @@ module LottoSim
     end
 
     def current_jackpot_payout
-      return if not_drawn_check
-      jackpot_outcome.count.zero? ? current_jackpot : (current_jackpot / jackpot_outcome.count)
+      num_jackpot_winners.zero? ? current_jackpot : (current_jackpot / num_jackpot_winners)
+    end
+
+    def num_jackpot_winners
+      jackpot_tickets.inject(0) {|memo, (ticket, picks)| memo += picks.length}
     end
 
     def one_in_how_many_jackpot_odds
@@ -534,12 +538,6 @@ module LottoSim
       tickets.sort {|a,b| b.winnings <=> a.winnings}[0...top]
     end
 
-    def award_jackpot
-      tickets.each do |ticket|
-        ticket.award_any_jackpot
-      end
-    end
-
     def random_picks(num_picks)
       (1..num_picks).map {|n| @ticket_picker.pick}
     end
@@ -548,14 +546,18 @@ module LottoSim
       num_picks * cost
     end
 
-    def match(pick)
+    def match(ticket, pick)
       return if not_drawn_check
 
       matching_numbers = pick & official_draw
       numbers_matched = matching_numbers.map(&:length)
       pick.outcome = outcomes[numbers_matched]
       pick.outcome.count += 1
-      bank.debit(pick.outcome.payout) unless pick.outcome.jackpot?
+      if pick.outcome.jackpot?
+        jackpot_tickets[ticket] << pick
+      else
+        bank.debit(pick.outcome.payout)
+      end
       pick.outcome
     end
 
@@ -576,10 +578,6 @@ module LottoSim
       }
     end
 
-    def jackpot_outcome
-      @_jo ||= outcomes.values.select {|v| v.jackpot?}.first
-    end
-
     NUM_TOP_WINNERS_TO_SHOW=3
     REPORT_INTERVAL=5000
     REPORTING_THRESHOLD=10000
@@ -597,7 +595,7 @@ module LottoSim
       }
 
       d = draw
-      puts "\nThe Nightly Draw is...   #{d}\n\n"
+      puts "\nThe Nightly Draw is...\n   #{d}\n\n"
 
       check_tickets
       stats
@@ -612,7 +610,17 @@ module LottoSim
         ticket.check
         report_count(i, num_tickets)
       }
+      award_any_jackpots
       self
+    end
+
+    def award_any_jackpots
+      jackpot_tickets.each_pair do |ticket, picks|
+        picks.each do |pick|
+          ticket.award_jackpot
+          bank.debit(pick.outcome.payout) 
+        end
+      end
     end
 
     def init_setup
@@ -620,6 +628,7 @@ module LottoSim
       @official_draw = nil
       @played = false
       @tickets = []
+      @jackpot_tickets = Hash.new {|h,k| h[k] = []}
       @plays = 0
       @ticket_counter = 0
       init_outcomes
