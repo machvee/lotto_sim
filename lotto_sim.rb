@@ -325,9 +325,9 @@ module LottoSim
     # e.g.  Picks a set of numbers between 1 and 53, and a Powerball
     # number from 1 to 26
     #
-    def initialize(configs, randomizer, generator=Generator)
+    def initialize(configs, randomizer, generator_class=Generator)
       @randomizer = randomizer
-      @generators = configs.map {|config| generator.new(config, @randomizer)}
+      @generators = configs.map {|config| generator_class.new(config, @randomizer)}
     end
 
     def pick

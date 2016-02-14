@@ -69,40 +69,120 @@ describe Pick, "A Lotto Pick" do
   end
 end
 
-
-describe Ticket, "A lottery Ticket" do
+describe Generator, "A random number set generator" do
   before do
-    @seed = 1000983364347
-    @lottery = TestLottery.new(randomizer: SeededRandomizer.new(@seed))
-    @numbers = [[4,9,17,27,31],[18]]
-    @ticket = Ticket.new(@lottery, [@numbers])
+    @config = {
+      num_picks: 20,
+      picks_max: 100
+    }
+    @seed = 918273645 # yields the random array in @expected_pick
+    @expected_pick = [8, 9, 16, 23, 29, 36, 44, 49, 51, 56, 60, 68, 71, 75, 80, 81, 86, 87, 93, 94]
+    @seeded_randomizer = SeededRandomizer.new(@seed)
+    @generator = Generator.new(@config, @seeded_randomizer)
+    @pick = @generator.pick
   end
 
-  it "should have readers with expected values after initialize" do
-    @ticket.lotto.must_equal @lottery
-    @ticket.number.must_be :>, 0 
-    @ticket.num_picks.must_equal 1
-    @ticket.picks.length.must_equal 1
-    @ticket.cost.must_equal 1
-    @ticket.winnings.must_equal 0
-    @ticket.checked.must_equal false
-    @ticket.printer.wont_equal nil
+  it "should pick a set of numbers" do
+    @pick.must_equal(@expected_pick)
   end
 
-  it "should print a message when a ticket is checked before the lottery is drawn" do
-    assert_output(stdout="lottery not yet drawn\n") { @ticket.check }
+  it "should have valid length and range" do
+    @pick.length.must_equal(@config[:num_picks])
+    @pick.max.must_be :<=, @config[:picks_max]
+  end
+
+  it "should have expected odds" do
+    odds = ([*(100-20+1)..100].inject(:*).to_f/[*1..20].inject(:*)).to_i
+    @generator.odds.must_equal(odds)
+  end
+
+  it "should tally frequency distribution correctly" do
+    (1..100).each do |v|
+      @generator.freq[v].must_equal(@expected_pick.include?(v) ? 1 : 0)
+    end
+  end
+
+  it "should act as a validator for manual picks" do
+    {
+      is_not_long_enough:   [*1..10],
+      is_too_long:          [*1..21],
+      has_dups:             [*1..19, 15],
+      is_out_of_range_low:  [*0..19],
+      is_out_of_range_high: [*1..19, 101]
+    }.each_pair do |type, invalid_pick|
+      @generator.valid?(invalid_pick).must_equal(false, "#{invalid_pick} #{type} and shouldn't be valid")
+    end
+
+    @generator.valid?(@expected_pick).must_equal(true)
   end
 end
 
+
 describe Lottery, "A TestLottery" do
   before do
-    @seed = 1000983364347
-    @lottery = TestLottery.new(randomizer: SeededRandomizer.new(@seed))
+    @seed = 1000983364347 # yields the random sets in @expected_draw
     @expected_draw = [[1,9,20,34,50],[14]]
+    @lottery = TestLottery.new(randomizer: SeededRandomizer.new(@seed))
   end
 
   it "should have the expected draw given the seed" do
     nightly_draw = @lottery.draw
     nightly_draw.numbers.must_equal(@expected_draw)
+  end
+
+  describe Ticket, "A Test Lottery Ticket" do
+    before do
+      @numbers = [[[4,9,17,27,34],[14]]]
+      @expected_outcome_key = [2, 1]
+      @ticket = Ticket.new(@lottery, @numbers)
+    end
+
+    it "should have readers with expected values after initialize" do
+      @ticket.lotto.must_equal @lottery
+      @ticket.number.must_be :>, 0 
+      @ticket.num_picks.must_equal @numbers.length
+      @ticket.picks.length.must_equal @numbers.length
+      @ticket.cost.must_equal @numbers.length * @lottery.cost
+      @ticket.winnings.must_equal 0
+      @ticket.checked.must_equal false
+      @ticket.printer.wont_equal nil
+    end
+
+    it "should print a message when a ticket is checked before the lottery is drawn" do
+      assert_output(stdout="lottery not yet drawn\n") { @ticket.check }
+    end
+
+    describe "when the lottery is drawn and ticket checked" do
+      before do
+        @lottery.draw
+        @ticket.check
+      end
+
+      it "should set checked" do
+        @ticket.checked.must_equal(true)
+      end
+
+      it "should calculate winnings for a [2, 1] outcome" do
+        @ticket.winnings.must_equal(@lottery.outcomes[[2,1]].payout)
+      end
+    end
+  end
+
+  describe RandomTicket, "A ticket that generates easy picks" do
+    before do
+      @num_picks = 10
+      @random_ticket = RandomTicket.new(@lottery, @num_picks)
+    end
+
+    it "should have accurate readers set" do
+      @random_ticket.lotto.must_equal @lottery
+      @random_ticket.number.must_be :>, 0 
+      @random_ticket.num_picks.must_equal @num_picks
+      @random_ticket.picks.length.must_equal @num_picks
+      @random_ticket.cost.must_equal @num_picks * @lottery.cost
+      @random_ticket.winnings.must_equal 0
+      @random_ticket.checked.must_equal false
+      @random_ticket.printer.wont_equal nil
+    end
   end
 end
