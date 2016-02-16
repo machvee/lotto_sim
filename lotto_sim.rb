@@ -16,6 +16,11 @@ module LottoSim
         picks_max: 26
       }
     ],
+    multiplier: {
+      name: "PowerPlay",
+      cost:  1,
+      picks: [2,3,4,5]
+    },
     payouts: {
       [5, 1] =>   JACKPOT,
       [5, 0] => 1_000_000,
@@ -46,6 +51,11 @@ module LottoSim
         picks_max: 15
       }
     ],
+    multiplier: {
+      name: "Megaplier",
+      cost:  1,
+      picks: [*[2]*2,*[3]*4,*[4]*3,*[5]*6]
+    },
     payouts: {
       [5, 1] =>   JACKPOT,
       [5, 0] => 1_000_000,
@@ -72,6 +82,11 @@ module LottoSim
         picks_max: 53
       }
     ],
+    multiplier: {
+      name: "Xtra",
+      cost:  1,
+      picks: [2,3,4,5]
+    },
     payouts: {
       [6] =>  JACKPOT,
       [5] =>    5_000,
@@ -117,20 +132,22 @@ module LottoSim
     attr_reader  :number
     attr_reader  :num_picks
     attr_reader  :picks
+    attr_reader  :multiplier
     attr_reader  :cost
     attr_reader  :winnings
     attr_reader  :checked
     attr_reader  :printer
 
-    def initialize(lotto, numbers)
-      @lotto = lotto
-      @number = lotto.next_ticket_number
-      @picks = gen_picks(numbers)
-      @num_picks = picks.length
-      @cost = lotto.calculate_cost(picks.length)
-      @printer = lotto.ticket_printer
-      @winnings = 0
-      @checked = false
+    def initialize(lotto, numbers, multiplier=nil)
+      @lotto      = lotto
+      @number     = lotto.next_ticket_number
+      @picks      = gen_picks(numbers)
+      @multiplier = multiplier
+      @num_picks  = picks.length
+      @cost       = lotto.calculate_cost(picks.length, multiplier)
+      @printer    = lotto.ticket_printer
+      @winnings   = 0
+      @checked    = false
     end
 
     def print(only_winners=false)
@@ -153,9 +170,17 @@ module LottoSim
         # until we know how many jackpots winners there might be
         # as they all split the jackpot
         #
-        @winnings += outcome.payout unless outcome.jackpot?
+        @winnings += payout(outcome) unless outcome.jackpot?
       end
       @checked = true
+    end
+
+    def payout(outcome)
+      #
+      # lotto.payout(outcome) * lotto.multiplier if played and matched on ticket
+      #
+      lotto.payout(outcome) *
+        (multiplier.nil? || multiplier != lotto.official_multiplier) ? 1 : multiplier
     end
 
     def award_jackpot
@@ -175,8 +200,16 @@ module LottoSim
 
 
   class RandomTicket < Ticket
-    def initialize(lotto, num_picks)
-      super(lotto, lotto.random_picks(num_picks))
+    def initialize(lotto, num_picks, multiplier=false)
+      mult_arg = case multiplier
+        when nil
+          lotto.random_multiplier
+        when false
+          nil
+        else
+          multiplier
+      end
+      super(lotto, lotto.random_picks(num_picks), mult_arg)
     end
   end
 
@@ -308,13 +341,54 @@ module LottoSim
     # the randomness of the number balls bouncing around
     # before being selected
     #
-    SHUFFLER_RANGE=10..20
+    DRAW_SHUFFLER_RANGE=10..20
     private
 
     def randomize(picks)
-      shuffle_picks = picks
-      @prng.rand(SHUFFLER_RANGE).times { shuffle_picks = shuffle_picks.shuffle(random: @prng) }
-      shuffle_picks
+      @prng.rand(DRAW_SHUFFLER_RANGE).times { picks.shuffle!(random: @prng) }
+      picks
+    end
+  end
+
+
+  class MultiplierGenerator
+    attr_reader :picks
+    attr_reader :cost
+    attr_reader :name
+
+    MULTI_SHUFFLER_RANGE=5..10
+
+    def initialize(config, randomizer)
+      @picks = config[:picks]
+      @name  = config[:name]
+      @cost  = config[:cost]
+      @prng  = randomizer.new_prng
+    end
+
+    def pick
+      @prng.rand(MULTI_SHUFFLER_RANGE).times {@picks.shuffle!(random: @prng)}
+      @picks.first
+    end
+
+    def invalid?(mult)
+      !mult.nil? || !picks.include?(mult)
+    end
+
+    def to_s
+      ("For %s more, play the \"%s\" by selecting %s\n" +
+       "If matched, your ticket winnings are multiplied by that number") % [
+        cost.money,
+        name,
+        or_list(picks)
+      ]
+    end
+
+    private
+
+    def or_list(nums)
+      n = nums.uniq.sort
+      cl = n.map(&:to_s)[0..-2]
+      [cl.any? ? cl.join(", ") : nil, n.last.to_s].compact.join(" or ")
     end
   end
 
@@ -414,7 +488,7 @@ module LottoSim
     end
 
     def stat
-      perc = (count.to_f / lotto.plays) * 100.0
+      perc = (count.to_f / lotto.num_plays) * 100.0
       puts "[%s] - %11s: %22s %22s %10.6f%%" % [
         self,
         count.comma,
@@ -428,23 +502,24 @@ module LottoSim
 
   class Lottery
 
-    DEFAULT_CONFIG = FLORIDA_LOTTO_CONFIG
+    DEFAULT_CONFIG = POWERBALL_CONFIG
 
-    attr_reader     :played
-    attr_reader     :official_draw # the current, official evening draw
     attr_reader     :name
+    attr_reader     :bank
     attr_reader     :cost
+    attr_reader     :official_draw
+    attr_reader     :official_multiplier
+    attr_reader     :played
     attr_reader     :tickets
-    attr_reader     :plays
+    attr_reader     :outcomes
     attr_reader     :payouts
+    attr_reader     :num_plays
     attr_reader     :start_jackpot
     attr_accessor   :current_jackpot
-    attr_reader     :ticket_counter
-    attr_reader     :bank
-    attr_reader     :outcomes
-    attr_reader     :ticket_printer
-    attr_reader     :quiet
     attr_reader     :jackpot_tickets
+    attr_reader     :ticket_printer
+    attr_reader     :ticket_counter
+    attr_reader     :quiet
 
 
     def initialize(options={})
@@ -454,6 +529,8 @@ module LottoSim
       @randomizer = options.fetch(:randomizer) {Randomizer.new}
       @game_picker = GamePicker.new(config[:numbers], @randomizer, DrawGenerator)
       @ticket_picker = GamePicker.new(config[:numbers], @randomizer)
+      @game_multiplier = MultiplierGenerator.new(config[:multiplier], @randomizer)
+      @ticket_multiplier = MultiplierGenerator.new(config[:multiplier], @randomizer)
       @start_jackpot = config[:start_jackpot]
       @bank = Bank.new(start_jackpot)
       @payouts = config[:payouts]
@@ -484,6 +561,7 @@ module LottoSim
 
     def how_to_play
       puts "\n%s\n\n" % @game_picker
+      puts "\n%s\n\n" % @game_multiplier
       puts "%s\n\n" % odds_of_winning_jackpot 
       self
     end
@@ -491,8 +569,9 @@ module LottoSim
     def draw
       return if played_check
       @official_draw = Pick.new(@game_picker.pick)
+      @official_multiplier = @game_multiplier.pick
       @played = true
-      official_draw
+      [official_draw, official_multiplier]
     end
 
     def payout(result)
@@ -501,36 +580,50 @@ module LottoSim
 
     def buy_ticket(options={})
       #
-      # buy_tickets(10) # 10 random selections
+      # buy_ticket(easy_picks: 10)                  # 10 random selections with random multiplier
+      # buy_ticket(easy_picks: 10, multiplier: nil) # 10 random selections with no multiplier
+      # buy_ticket(easy_picks: 10, multiplier: 2)   # 10 random selections with multiplier 2
+      #
       #   --or--
-      # buy_tickets(1, [[7,17,33,38,44],[11]]) # play this number
+      #
+      # buy_ticket(picks: [[[7,17,33,38,44],[11]], ...], multiplier: 3) # play picks number(s) with multiplier 3
       #
       return if played_check
-      return nil if invalid_picks?(options[:picks]) unless options[:picks].nil?
+      return nil if invalid_picks?(options)
 
       create_ticket(options)
     end
 
-    def invalid_picks?(numbers)
-      numbers.each do |set|
-        if @game_picker.invalid?(set)
-          puts "%s is not a valid pick" % numbers
-          how_to_play
-          return true
-        end
+    def invalid_picks?(options)
+      numbers = options[:numbers]
+      multiplier = options[:multiplier]
+      if @game_multiplier.invalid?(multiplier)
+        puts "%d is not a valid multiplier" % multiplier
+        how_to_play
+        return true
+      else
+        numbers.each do |set|
+          if @game_picker.invalid?(set)
+            puts "%s is not a valid pick" % numbers
+            how_to_play
+            return true
+          end
+        end unless numbers.nil?
       end
       false
     end
 
     def create_ticket(options)
       t = if options[:picks].nil?
-        RandomTicket.new(self, options.fetch(:easy_picks) {1})
+        multiplier = options.fetch(:multiplier) {false}
+        RandomTicket.new(self, options.fetch(:easy_picks) {1}, multiplier)
       else
-        Ticket.new(self, options[:picks].map {|s| s.map(&:sort)})
+        multiplier = options.fetch(:multiplier) {nil}
+        Ticket.new(self, options[:picks].map {|s| s.map(&:sort)}, multiplier)
       end
       tickets << t
-      bank.credit(calculate_cost(t.num_picks))
-      @plays += t.num_picks
+      bank.credit(calculate_cost(t))
+      @num_plays += t.num_picks
       t
     end
 
@@ -542,8 +635,12 @@ module LottoSim
       (1..num_picks).map {|n| @ticket_picker.pick}
     end
 
-    def calculate_cost(num_picks)
-      num_picks * cost
+    def random_multiplier
+      @ticket_multiplier.pick
+    end
+
+    def calculate_cost(ticket)
+      (num_picks * ticket.cost) + ((ticket.multiplier.nil? ? 0 : 1) * @game_multiplier.cost)
     end
 
     def match(ticket, pick)
@@ -594,8 +691,14 @@ module LottoSim
         report_count(i, num_tickets)
       }
 
-      d = draw
-      puts "\nThe Nightly Draw is...\n   #{d}\n\n"
+      nd, mult = draw
+      puts "\nThe Nightly Draw is...\n%s%d\n%s%s x %d\n\n" % [
+        " "*2,
+        nd,
+        " "*2,
+        multiplier.name,
+        mult
+      ]
 
       check_tickets
       stats
@@ -629,7 +732,7 @@ module LottoSim
       @played = false
       @tickets = []
       @jackpot_tickets = Hash.new {|h,k| h[k] = []}
-      @plays = 0
+      @num_plays = 0
       @ticket_counter = 0
       init_outcomes
       self
@@ -665,6 +768,7 @@ module LottoSim
     def to_s
       any_draw = if played
         "\n\nDraw:  %s" % official_draw
+        "\n\n%s:  %d" % [multiplier.name, official_multiplier]
       else
         ""
       end
@@ -672,7 +776,7 @@ module LottoSim
       "%s: %s tickets purchased, %s plays, current jackpot: %s%s" % 
         [name,
          tickets.length.comma,
-         plays.comma,
+         num_plays.comma,
          current_jackpot.money,
          any_draw]
     end
