@@ -20,6 +20,11 @@ class TestLottery < Lottery
             picks_max: 20
           }
         ],
+        multiplier: {
+          name: "Fuzzball",
+          cost:  1,
+          picks: [2,3,4,5]
+        },
         payouts: {
           [5, 1] =>  JACKPOT, [5, 0] =>  100_000,
           [4, 1] =>   10_000, [4, 0] =>      100,
@@ -128,7 +133,7 @@ describe Lottery, "A TestLottery" do
   end
 
   it "should have the expected draw given the seed" do
-    nightly_draw = @lottery.draw
+    nightly_draw, nightly_multiplier = @lottery.draw
     nightly_draw.numbers.must_equal(@expected_draw)
   end
 
@@ -200,7 +205,7 @@ describe Lottery, "A TestLottery" do
       @num_non_winning_tickets.times do 
         @lottery.buy_ticket(easy_picks: 5)
       end
-      @draw = @lottery.draw
+      @draw, @multiplier = @lottery.draw
       @lottery.check_tickets
     end
 

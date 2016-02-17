@@ -144,7 +144,7 @@ module LottoSim
       @picks      = gen_picks(numbers)
       @multiplier = multiplier
       @num_picks  = picks.length
-      @cost       = lotto.calculate_cost(picks.length, multiplier)
+      @cost       = lotto.calculate_cost(self)
       @printer    = lotto.ticket_printer
       @winnings   = 0
       @checked    = false
@@ -179,8 +179,7 @@ module LottoSim
       #
       # lotto.payout(outcome) * lotto.multiplier if played and matched on ticket
       #
-      lotto.payout(outcome) *
-        (multiplier.nil? || multiplier != lotto.official_multiplier) ? 1 : multiplier
+      outcome.payout * ((multiplier.nil? || multiplier != lotto.official_multiplier) ? 1 : multiplier)
     end
 
     def award_jackpot
@@ -371,7 +370,7 @@ module LottoSim
     end
 
     def invalid?(mult)
-      !mult.nil? || !picks.include?(mult)
+      !(mult.nil? || picks.include?(mult))
     end
 
     def to_s
@@ -640,7 +639,7 @@ module LottoSim
     end
 
     def calculate_cost(ticket)
-      (num_picks * ticket.cost) + ((ticket.multiplier.nil? ? 0 : 1) * @game_multiplier.cost)
+      (ticket.num_picks * cost) + ((ticket.multiplier.nil? ? 0 : 1) * @game_multiplier.cost)
     end
 
     def match(ticket, pick)
@@ -691,13 +690,13 @@ module LottoSim
         report_count(i, num_tickets)
       }
 
-      nd, mult = draw
-      puts "\nThe Nightly Draw is...\n%s%d\n%s%s x %d\n\n" % [
+      nd, multi = draw
+      puts "\nThe Nightly Draw is...\n%s%s\n%s%s x %d\n\n" % [
         " "*2,
         nd,
         " "*2,
-        multiplier.name,
-        mult
+        @game_multiplier.name,
+        multi
       ]
 
       check_tickets
@@ -768,7 +767,7 @@ module LottoSim
     def to_s
       any_draw = if played
         "\n\nDraw:  %s" % official_draw
-        "\n\n%s:  %d" % [multiplier.name, official_multiplier]
+        "\n\n%s:  %d" % [@game_multiplier.name, official_multiplier]
       else
         ""
       end
