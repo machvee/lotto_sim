@@ -1,3 +1,5 @@
+#!/usr/local/bin/ruby
+
 require 'minitest/autorun'
 require 'lotto_sim'
 include LottoSim
