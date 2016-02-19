@@ -1,4 +1,4 @@
+#!/usr/local/bin/ruby
 require 'lotto_sim'
-include LottoSim
-p = Powerball.new
+p = LottoSim::Powerball.new
 p.play(tickets: ARGV[0]||25000, picks: 10)
