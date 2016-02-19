@@ -187,7 +187,13 @@ module LottoSim
     end
 
     def inspect
-      "Ticket #{number}: #{num_picks} picks for #{cost.money}%s" % (checked ? (", winnings: %s" % winnings.money) : "")
+      "Ticket %d: %d pick%s for #{cost.money}%s%s" % [
+        number,
+        num_picks,
+        num_picks == 1 ? "" : "s",
+        (checked ? (", winnings: %s" % winnings.money) : ""),
+        multiplier.nil? ? "" : ", #{lotto.game_multiplier.name}: #{multiplier}"
+      ]
     end
 
     private
@@ -201,7 +207,7 @@ module LottoSim
   class RandomTicket < Ticket
     def initialize(lotto, num_picks, multiplier=false)
       mult_arg = case multiplier
-        when nil
+        when true
           lotto.random_multiplier
         when false
           nil
@@ -242,6 +248,7 @@ module LottoSim
       if lotto.played
         printer.lbreak
         printer.center("**  %s  **" % lotto.official_draw)
+        printer.center("%s  x  %d" % [lotto.game_multiplier.name, lotto.official_multiplier])
       end
       printer.lbreak
       printer.ljust("Plays: #{ticket.num_picks}")
@@ -261,6 +268,7 @@ module LottoSim
 
     def print_footer(ticket)
       printer.lbreak
+      printer.ljust("%s %s" % [lotto.game_multiplier.name, ticket.multiplier.nil? ? "not played" : " #{ticket.multiplier}"])
       opt_winnings = ticket.checked ? ((" "*14) + "Winnings:  %s" % ticket.winnings.money) : ""
       printer.ljust("Cost:  %s%s" % [ticket.cost.money, opt_winnings])
       printer.bottom
@@ -518,6 +526,7 @@ module LottoSim
     attr_reader     :jackpot_tickets
     attr_reader     :ticket_printer
     attr_reader     :ticket_counter
+    attr_reader     :game_multiplier
     attr_reader     :quiet
 
 
@@ -560,7 +569,7 @@ module LottoSim
 
     def how_to_play
       puts "\n%s\n\n" % @game_picker
-      puts "\n%s\n\n" % @game_multiplier
+      puts "\n%s\n\n" % game_multiplier
       puts "%s\n\n" % odds_of_winning_jackpot 
       self
     end
@@ -568,7 +577,7 @@ module LottoSim
     def draw
       return if played_check
       @official_draw = Pick.new(@game_picker.pick)
-      @official_multiplier = @game_multiplier.pick
+      @official_multiplier = game_multiplier.pick
       @played = true
       [official_draw, official_multiplier]
     end
@@ -596,7 +605,7 @@ module LottoSim
     def invalid_picks?(options)
       numbers = options[:numbers]
       multiplier = options[:multiplier]
-      if @game_multiplier.invalid?(multiplier)
+      if game_multiplier.invalid?(multiplier)
         puts "%d is not a valid multiplier" % multiplier
         how_to_play
         return true
@@ -614,7 +623,7 @@ module LottoSim
 
     def create_ticket(options)
       t = if options[:picks].nil?
-        multiplier = options.fetch(:multiplier) {false}
+        multiplier = options.fetch(:multiplier) {true}
         RandomTicket.new(self, options.fetch(:easy_picks) {1}, multiplier)
       else
         multiplier = options.fetch(:multiplier) {nil}
@@ -639,7 +648,7 @@ module LottoSim
     end
 
     def calculate_cost(ticket)
-      (ticket.num_picks * cost) + ((ticket.multiplier.nil? ? 0 : 1) * @game_multiplier.cost)
+      (ticket.num_picks * cost) + ((ticket.multiplier.nil? ? 0 : 1) * game_multiplier.cost)
     end
 
     def match(ticket, pick)
@@ -695,7 +704,7 @@ module LottoSim
         " "*2,
         nd,
         " "*2,
-        @game_multiplier.name,
+        game_multiplier.name,
         multi
       ]
 
@@ -767,7 +776,7 @@ module LottoSim
     def to_s
       any_draw = if played
         "\n\nDraw:  %s" % official_draw
-        "\n\n%s:  %d" % [@game_multiplier.name, official_multiplier]
+        "\n\n%s:  %d" % [game_multiplier.name, official_multiplier]
       else
         ""
       end
