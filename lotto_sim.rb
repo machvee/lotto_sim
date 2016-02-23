@@ -170,7 +170,15 @@ module LottoSim
         # until we know how many jackpots winners there might be
         # as they all split the jackpot
         #
-        @winnings += payout(outcome) unless outcome.jackpot?
+        outcome.count += 1
+        outcome.multiplier_count += 1 if multiplier_match?
+
+        if outcome.jackpot?
+          lotto.jackpot_tickets[self] << pick
+        else
+          @winnings += payout(outcome)
+          lotto.bank.debit(outcome.payout)
+        end
       end
       @checked = true
     end
@@ -179,7 +187,15 @@ module LottoSim
       #
       # lotto.payout(outcome) * lotto.multiplier if played and matched on ticket
       #
-      outcome.payout * ((multiplier.nil? || multiplier != lotto.official_multiplier) ? 1 : multiplier)
+      outcome.payout * (multiplier_match? ? multiplier : 1)
+    end
+
+    def multiplier_match?
+      if multiplier.nil?
+        false
+      else
+        multiplier == lotto.official_multiplier
+      end
     end
 
     def award_jackpot
@@ -251,7 +267,8 @@ module LottoSim
         printer.center("%s  x  %d" % [lotto.game_multiplier.name, lotto.official_multiplier])
       end
       printer.lbreak
-      printer.ljust("Plays: #{ticket.num_picks}")
+      printer.lrjust("Plays: #{ticket.num_picks}",
+                     "%s: %s" % [lotto.game_multiplier.name, ticket.multiplier.nil? ? "not played" : " #{ticket.multiplier}"])
       printer.lbreak
     end
 
@@ -268,9 +285,8 @@ module LottoSim
 
     def print_footer(ticket)
       printer.lbreak
-      printer.ljust("%s %s" % [lotto.game_multiplier.name, ticket.multiplier.nil? ? "not played" : " #{ticket.multiplier}"])
       opt_winnings = ticket.checked ? ((" "*14) + "Winnings:  %s" % ticket.winnings.money) : ""
-      printer.ljust("Cost:  %s%s" % [ticket.cost.money, opt_winnings])
+      printer.lrjust("Cost:  %s" % ticket.cost.money, opt_winnings)
       printer.bottom
     end
 
@@ -462,12 +478,14 @@ module LottoSim
     attr_reader :pays
 
     attr_accessor :count
+    attr_accessor :multiplier_count
 
     def initialize(lotto, match, pays)
       @lotto = lotto
       @match = match # [3] or [4,1]
       @pays = pays
       @count = 0
+      @multiplier_count = 0
     end
 
     def payout
@@ -496,11 +514,17 @@ module LottoSim
 
     def stat
       perc = (count.to_f / lotto.num_plays) * 100.0
-      puts "[%s] - %11s: %22s %22s %10.6f%%" % [
+      multi_stat = jackpot? ? "%58s"  % " ":  "%11s: %22s %22s" % [
+        multiplier_count.comma,
+        (payout * lotto.official_multiplier).money,
+        (multiplier_count * payout * lotto.official_multiplier).money
+      ]
+      puts "[%s] - %11s: %22s %22s %s  %10.6f%%" % [
         self,
         count.comma,
         payout.money,
         (count * payout).money,
+        multi_stat,
         perc
       ]
     end
@@ -657,12 +681,6 @@ module LottoSim
       matching_numbers = pick & official_draw
       numbers_matched = matching_numbers.map(&:length)
       pick.outcome = outcomes[numbers_matched]
-      pick.outcome.count += 1
-      if pick.outcome.jackpot?
-        jackpot_tickets[ticket] << pick
-      else
-        bank.debit(pick.outcome.payout)
-      end
       pick.outcome
     end
 
@@ -933,6 +951,11 @@ module LottoSim
 
     def ljust(str)
       center(" %s%s" % [str, " "*(width-3-str.length)])
+    end
+
+    def lrjust(left_str, right_str)
+      mid_spacing = width - left_str.length - right_str.length - 6
+      center("%s%s%s  " % [left_str, " "*mid_spacing, right_str])
     end
 
     def output(str)
