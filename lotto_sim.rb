@@ -943,11 +943,23 @@ module LottoSim
       output @lbreak_s
     end
 
-    def center(str)
-      side = width - 2 - str.length
-      lmargin = side/2
-      rmargin = side - lmargin
-      output "%s %s%s%s %s" % [@vert_s, " "*lmargin, str, " "*rmargin, @vert_s]
+    def center(str, disp_len=str.length)
+      margin = width - disp_len
+      #   |<----------- width ---------->|
+      #         |<-   disp_len   ->|
+      #   |<--->| margin/2
+      #  ||                              ||
+      lmargin = margin/2
+      rmargin = margin - lmargin
+      output "%s%*s%s%*s%s" % [
+        @vert_s,
+        lmargin,
+        SPACE,
+        str,
+        rmargin,
+        SPACE,
+        @vert_s
+      ]
     end
 
     def ljust(str)
