@@ -519,11 +519,12 @@ module LottoSim
         (payout * lotto.official_multiplier).money,
         (multiplier_count * payout * lotto.official_multiplier).money
       ]
+      non_multiple_count = count - multiplier_count
       puts "[%s] - %11s: %22s %22s %s  %10.6f%%" % [
         self,
-        count.comma,
+        non_multiple_count.comma,
         payout.money,
-        (count * payout).money,
+        (non_multiple_count * payout).money,
         multi_stat,
         perc
       ]
