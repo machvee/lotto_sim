@@ -105,6 +105,8 @@ module LottoSim
     attr_accessor  :outcome
 
     PICK_COLOR=:red
+    PSEP="    "
+    NSEP="  -  "
 
     def initialize(numbers)
       @numbers = numbers # eg. [ [3,10,23,49,54], [18] ]
@@ -113,8 +115,18 @@ module LottoSim
 
     def to_s
       numbers.map { |n_set|
-        n_set.map {|n| "%02d" % n}.join("    ")
-      }.join("  -  ")
+        n_set.map {|n| "%02d" % n}.join(PSEP)
+      }.join(NSEP)
+    end
+
+    def colorized(draw)
+      numbers.each_with_index.map do |n_set, i|
+        d_set = draw.numbers[i]
+        n_set.map { |n|
+          nstr = "%02d" % n
+          d_set.include?(n) ? nstr.send(PICK_COLOR) : nstr
+        }.join(PSEP)
+      end.join(NSEP)
     end
 
     def &(other_pick)
@@ -276,7 +288,15 @@ module LottoSim
       ticket.picks.each do |pick|
         next if only_winners && pick.outcome.payout == 0
         if ticket.checked
-          printer.ljust("  %s%s" % [pick, pick.outcome.nil? ? "" : ("   %s" % pick.outcome.print)])
+          colorized_pick_str = pick.colorized(lotto.official_draw)
+          pick_display_length = pick.to_s.length
+          outcome_str = pick.outcome.nil? ? "" : ("   %s" % pick.outcome.print)
+          display_length = pick_display_length + outcome_str.length + 2
+          printer.ljust("  %s%s" % [
+              colorized_pick_str, outcome_str
+            ],
+            display_length
+          )
         else
           printer.center("%s" % pick)
         end
@@ -928,19 +948,19 @@ module LottoSim
     end
 
     def top
-      output @top_s
+      puts @top_s
     end
 
     def sep
-      output @sep_s
+      puts @sep_s
     end
 
     def bottom
-      output @bottom_s
+      puts @bottom_s
     end
 
     def lbreak
-      output @lbreak_s
+      puts @lbreak_s
     end
 
     def center(str, disp_len=str.length)
@@ -951,28 +971,29 @@ module LottoSim
       #  ||                              ||
       lmargin = margin/2
       rmargin = margin - lmargin
-      output "%s%*s%s%*s%s" % [
-        @vert_s,
-        lmargin,
-        SPACE,
+      output "%*s%s%*s" % [
+        lmargin, SPACE,
         str,
-        rmargin,
-        SPACE,
-        @vert_s
+        rmargin, SPACE
       ]
     end
 
-    def ljust(str)
-      center(" %s%s" % [str, " "*(width-3-str.length)])
+    def ljust(str, disp_len=str.length)
+      #   |<-------------- width -------------->|
+      #   |<-   disp_len   ->|
+      #   |<---------  str.length ------------>|
+      #  ||                                     ||
+      offset = str.length - disp_len
+      output "%-*s" % [width+offset, str]
     end
 
     def lrjust(left_str, right_str)
       mid_spacing = width - left_str.length - right_str.length - 6
-      center("%s%s%s  " % [left_str, " "*mid_spacing, right_str])
+      center("%s%*s%s  " % [left_str, mid_spacing, SPACE, right_str])
     end
 
     def output(str)
-      puts str
+      puts "%s%s%s" % [@vert_s, str, @vert_s]
     end
   end
 end
