@@ -120,13 +120,20 @@ module LottoSim
     end
 
     def colorized(draw)
-      numbers.each_with_index.map do |n_set, i|
+      #
+      # return colorized/formatted pick string with outcome, display_length
+      #
+      colorized_pick_str = numbers.each_with_index.map do |n_set, i|
         d_set = draw.numbers[i]
         n_set.map { |n|
           nstr = "%02d" % n
           d_set.include?(n) ? nstr.send(PICK_COLOR) : nstr
         }.join(PSEP)
       end.join(NSEP)
+      pick_display_length = to_s.length
+      outcome_str = outcome.nil? ? "" : ("   %s" % outcome.print)
+      display_length = pick_display_length + outcome_str.length + 2
+      ["  %s%s" % [colorized_pick_str, outcome_str], display_length]
     end
 
     def &(other_pick)
@@ -176,7 +183,7 @@ module LottoSim
       return if lotto.not_drawn_check
       return if checked
       picks.each do |pick|
-        outcome = lotto.match(self, pick)
+        outcome = lotto.match(pick)
         #
         # if jackpot, we need to postpone award of winnings
         # until we know how many jackpots winners there might be
@@ -288,15 +295,7 @@ module LottoSim
       ticket.picks.each do |pick|
         next if only_winners && pick.outcome.payout == 0
         if ticket.checked
-          colorized_pick_str = pick.colorized(lotto.official_draw)
-          pick_display_length = pick.to_s.length
-          outcome_str = pick.outcome.nil? ? "" : ("   %s" % pick.outcome.print)
-          display_length = pick_display_length + outcome_str.length + 2
-          printer.ljust("  %s%s" % [
-              colorized_pick_str, outcome_str
-            ],
-            display_length
-          )
+          printer.ljust(*pick.colorized(lotto.official_draw))
         else
           printer.center("%s" % pick)
         end
@@ -696,7 +695,7 @@ module LottoSim
       (ticket.num_picks * cost) + ((ticket.multiplier.nil? ? 0 : 1) * game_multiplier.cost)
     end
 
-    def match(ticket, pick)
+    def match(pick)
       return if not_drawn_check
 
       matching_numbers = pick & official_draw
@@ -750,6 +749,35 @@ module LottoSim
       check_tickets
       stats
       winning_tickets(NUM_TOP_WINNERS_TO_SHOW).each {|t| t.wins}
+      self
+    end
+
+    PLAY_UNTIL_CONFIG = {
+      report_payout: 100,
+      max_picks: 25_000_000
+    }
+
+    def play_until_jackpot(options={})
+      #
+      # draw the lottery, then generate picks until one
+      # matches the draw and wins the jackpot.   Report
+      # any picks that win > $100 along the way
+      #
+      opts = PLAY_UNTIL_CONFIG.merge(options)
+      count = 0
+      reset
+      d,_ = draw
+      puts d
+      loop {
+        count += 1
+        pick = Pick.new(@ticket_picker.pick)
+        outcome = match(pick)
+        if outcome.payout >= opts[:report_payout]
+          result, _ = pick.colorized(official_draw)
+          puts "%s: %s" % [count.comma, result]
+        end
+        break if outcome.jackpot? || count == opts[:max_picks]
+      }
       self
     end
 
