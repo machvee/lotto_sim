@@ -253,7 +253,6 @@ module LottoSim
     end
   end
 
-
   class TicketPrinter
 
     TICKET_PRINT_WIDTH=70
@@ -553,6 +552,22 @@ module LottoSim
 
   class Lottery
 
+    class TicketFactory
+      def initialize(lotto)
+        @lotto = lotto
+      end
+
+      def build(options)
+        if options[:picks].nil?
+          multiplier = options.fetch(:multiplier) {true}
+          RandomTicket.new(@lotto, options.fetch(:easy_picks) {1}, multiplier)
+        else
+          multiplier = options.fetch(:multiplier) {nil}
+          Ticket.new(@lotto, options[:picks].map {|s| s.map(&:sort)}, multiplier)
+        end
+      end
+    end
+
     DEFAULT_CONFIG = POWERBALL_CONFIG
 
     attr_reader     :name
@@ -571,6 +586,7 @@ module LottoSim
     attr_reader     :ticket_printer
     attr_reader     :ticket_counter
     attr_reader     :game_multiplier
+    attr_reader     :ticket_factory
     attr_reader     :quiet
 
 
@@ -583,6 +599,7 @@ module LottoSim
       @ticket_picker = GamePicker.new(config[:numbers], @randomizer)
       @game_multiplier = MultiplierGenerator.new(config[:multiplier], @randomizer)
       @ticket_multiplier = MultiplierGenerator.new(config[:multiplier], @randomizer)
+      @ticket_factory = TicketFactory.new(self)
       @start_jackpot = config[:start_jackpot]
       @bank = Bank.new(start_jackpot)
       @payouts = config[:payouts]
@@ -666,17 +683,11 @@ module LottoSim
     end
 
     def create_ticket(options)
-      t = if options[:picks].nil?
-        multiplier = options.fetch(:multiplier) {true}
-        RandomTicket.new(self, options.fetch(:easy_picks) {1}, multiplier)
-      else
-        multiplier = options.fetch(:multiplier) {nil}
-        Ticket.new(self, options[:picks].map {|s| s.map(&:sort)}, multiplier)
+      ticket_factory.build(options).tap do |t|
+        bank.credit(calculate_cost(t))
+        @num_plays += t.num_picks
+        tickets << t
       end
-      tickets << t
-      bank.credit(calculate_cost(t))
-      @num_plays += t.num_picks
-      t
     end
 
     def winning_tickets(top=3)
