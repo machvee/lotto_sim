@@ -3,16 +3,16 @@ require 'lotto_sim'
 
 MEGA_MILLIONS_CONFIG = {
   name: "Mega Millions",
-  cost:  1,
-  start_jackpot: 15_000_000,
+  cost:  2,
+  start_jackpot: 40_000_000,
   numbers: [
     {
       num_picks: 5,
-      picks_max: 75
+      picks_max: 70
     },
     {
       num_picks: 1,
-      picks_max: 15
+      picks_max: 25
     }
   ],
   multiplier: {

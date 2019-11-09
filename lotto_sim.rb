@@ -928,15 +928,9 @@ module Formatters
 end
 
 
-class Bignum
+class Integer
   include Formatters
 end
-
-
-class Fixnum
-  include Formatters
-end
-
 
 class String
   # colorization

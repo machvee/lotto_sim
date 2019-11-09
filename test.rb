@@ -49,7 +49,7 @@ describe Pick, "A Lotto Pick" do
 
   it "should have a readers" do
     @pick.numbers.must_equal @numbers
-    @pick.outcome.must_equal nil
+    assert_nil @pick.outcome
   end
 
   it "should have a String representation" do
@@ -193,7 +193,7 @@ describe Lottery, "A TestLottery" do
       @random_ticket.winnings.must_equal 0
       @random_ticket.checked.must_equal false
       @random_ticket.printer.wont_equal nil
-      @random_ticket.multiplier.must_equal nil
+      assert_nil @random_ticket.multiplier
     end
   end
 
