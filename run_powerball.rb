@@ -16,7 +16,7 @@ POWERBALL_CONFIG = {
   ],
   multiplier: {
     name: "PowerPlay",
-    cost:  1,
+    cost:  2,
     picks: [2,3,4,5]
   },
   payouts: {

@@ -48,12 +48,12 @@ describe Pick, "A Lotto Pick" do
   end
 
   it "should have a readers" do
-    @pick.numbers.must_equal @numbers
+    expect(@pick.numbers).must_equal @numbers
     assert_nil @pick.outcome
   end
 
   it "should have a String representation" do
-    @pick.to_s.must_equal "01    02    03    04    05  -  01"
+    expect(@pick.to_s).must_equal "01    02    03    04    05  -  01"
   end
 
   describe "supports an & operator that produces a set of intersections" do
@@ -66,12 +66,12 @@ describe Pick, "A Lotto Pick" do
 
     it "should return matches when there is a match" do
       @pick_with_matches = Pick.new(@matching_numbers)
-      (@pick & @pick_with_matches).must_equal @matching_intersect
+      expect(@pick & @pick_with_matches).must_equal @matching_intersect
     end
 
     it "should return empty arrays when no match" do
       @pick_with_no_matches = Pick.new(@no_matching_numbers)
-      (@pick & @pick_with_no_matches).must_equal @no_matching_intersect 
+      expect(@pick & @pick_with_no_matches).must_equal @no_matching_intersect 
     end
   end
 end
@@ -92,22 +92,22 @@ describe Generator, "A random number set generator" do
   end
 
   it "should pick a set of numbers" do
-    @pick.must_equal(@expected_pick)
+    expect(@pick).must_equal(@expected_pick)
   end
 
   it "should have valid length and range" do
-    @pick.length.must_equal(@config[:num_picks])
-    @pick.max.must_be :<=, @config[:picks_max]
+    expect(@pick.length).must_equal(@config[:num_picks])
+    expect(@pick.max).must_be :<=, @config[:picks_max]
   end
 
   it "should have expected odds" do
     odds = ([*(@max-@num+1)..@max].inject(:*).to_f/[*1..@num].inject(:*)).to_i
-    @generator.odds.must_equal(odds)
+    expect(@generator.odds).must_equal(odds)
   end
 
   it "should tally frequency distribution correctly" do
     (1..@max).each do |v|
-      @generator.freq[v].must_equal(@expected_pick.include?(v) ? 1 : 0)
+      expect(@generator.freq[v]).must_equal(@expected_pick.include?(v) ? 1 : 0)
     end
   end
 
@@ -119,10 +119,10 @@ describe Generator, "A random number set generator" do
       is_out_of_range_low:  [*0..(@num-1)],
       is_out_of_range_high: [*1..(@num-1), @max+1]
     }.each_pair do |type, invalid_pick|
-      @generator.valid?(invalid_pick).must_equal(false, "#{invalid_pick} #{type} and shouldn't be valid")
+      expect(@generator.valid?(invalid_pick)).must_equal(false, "#{invalid_pick} #{type} and shouldn't be valid")
     end
 
-    @generator.valid?(@expected_pick).must_equal(true)
+    expect(@generator.valid?(@expected_pick)).must_equal(true)
   end
 end
 
@@ -136,7 +136,7 @@ describe Lottery, "A TestLottery" do
 
   it "should have the expected draw given the seed" do
     nightly_draw, nightly_multiplier = @lottery.draw
-    nightly_draw.numbers.must_equal(@expected_draw)
+    expect(nightly_draw.numbers).must_equal(@expected_draw)
   end
 
   describe Ticket, "A Test Lottery Ticket" do
@@ -147,14 +147,14 @@ describe Lottery, "A TestLottery" do
     end
 
     it "should have readers with expected values after initialize" do
-      @ticket.lotto.must_equal @lottery
-      @ticket.number.must_be :>, 0 
-      @ticket.num_picks.must_equal @numbers.length
-      @ticket.picks.length.must_equal @numbers.length
-      @ticket.cost.must_equal @numbers.length * @lottery.cost
-      @ticket.winnings.must_equal 0
-      @ticket.checked.must_equal false
-      @ticket.printer.wont_equal nil
+      expect(@ticket.lotto).must_equal @lottery
+      expect(@ticket.number).must_be :>, 0 
+      expect(@ticket.num_picks).must_equal @numbers.length
+      expect(@ticket.picks.length).must_equal @numbers.length
+      expect(@ticket.cost).must_equal @numbers.length * @lottery.cost
+      expect(@ticket.winnings).must_equal 0
+      expect(@ticket.checked).must_equal false
+      expect(@ticket.printer).wont_equal nil
     end
 
     it "should print a message when a ticket is checked before the lottery is drawn" do
@@ -168,11 +168,11 @@ describe Lottery, "A TestLottery" do
       end
 
       it "should set checked" do
-        @ticket.checked.must_equal(true)
+        expect(@ticket.checked).must_equal(true)
       end
 
       it "should calculate winnings for a [2, 1] outcome" do
-        @ticket.winnings.must_equal(@lottery.outcomes[[2,1]].payout)
+        expect(@ticket.winnings).must_equal(@lottery.outcomes[[2,1]].payout)
       end
     end
 
@@ -185,14 +185,14 @@ describe Lottery, "A TestLottery" do
     end
 
     it "should have accurate readers set" do
-      @random_ticket.lotto.must_equal @lottery
-      @random_ticket.number.must_be :>, 0 
-      @random_ticket.num_picks.must_equal @num_picks
-      @random_ticket.picks.length.must_equal @num_picks
-      @random_ticket.cost.must_equal @num_picks * @lottery.cost
-      @random_ticket.winnings.must_equal 0
-      @random_ticket.checked.must_equal false
-      @random_ticket.printer.wont_equal nil
+      expect(@random_ticket.lotto).must_equal @lottery
+      expect(@random_ticket.number).must_be :>, 0 
+      expect(@random_ticket.num_picks).must_equal @num_picks
+      expect(@random_ticket.picks.length).must_equal @num_picks
+      expect(@random_ticket.cost).must_equal @num_picks * @lottery.cost
+      expect(@random_ticket.winnings).must_equal 0
+      expect(@random_ticket.checked).must_equal false
+      expect(@random_ticket.printer).wont_equal nil
       assert_nil @random_ticket.multiplier
     end
   end
@@ -213,21 +213,21 @@ describe Lottery, "A TestLottery" do
     end
 
     it "should have the expected number of tickets purchased" do
-      @lottery.tickets.length.must_equal(@num_winning_tickets + @num_non_winning_tickets)
+      expect(@lottery.tickets.length).must_equal(@num_winning_tickets + @num_non_winning_tickets)
     end
 
     it "should remember the num_winning_tickets" do
-      @draw.numbers.must_equal(@expected_draw)
-      @lottery.num_jackpot_winners.must_equal(@num_winning_tickets)
+      expect(@draw.numbers).must_equal(@expected_draw)
+      expect(@lottery.num_jackpot_winners).must_equal(@num_winning_tickets)
     end
 
     it "should have calculated the correct split jackpot amount to be shared" do
-      @lottery.current_jackpot_payout.must_equal(@lottery.current_jackpot/@num_winning_tickets)
+      expect(@lottery.current_jackpot_payout).must_equal(@lottery.current_jackpot/@num_winning_tickets)
     end
 
     it "should calculate each ticket winnings correctly" do
       @winning_tickets.each do |ticket|
-        ticket.winnings.must_equal(@lottery.current_jackpot/@num_winning_tickets)
+        expect(ticket.winnings).must_equal(@lottery.current_jackpot/@num_winning_tickets)
       end
     end
   end
